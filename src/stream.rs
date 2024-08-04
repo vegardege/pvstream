@@ -1,9 +1,22 @@
 use flate2::read::GzDecoder;
-use reqwest::blocking::Client;
+use reqwest::blocking;
 use std::fs::File;
+use std::io::copy;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use url::Url;
+
+/// Download a file and store it on the local file system.
+///
+/// Use this in combination with `from_file` if you plan to parse data from
+/// the same file more than once. If you only ever plan to use the file once,
+/// skip the disk IO and use `from_http` directly for a ~50% speedup.
+pub fn http_to_file(url: &Url, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let response = blocking::get(url.as_str())?.error_for_status()?;
+    let mut dest = File::create(path)?;
+    copy(&mut response.take(1 << 30), &mut dest)?;
+    Ok(())
+}
 
 /// Creates an iterator to extract lines from a gzipped file on the local fs
 pub fn from_file(
@@ -17,7 +30,7 @@ pub fn from_file(
 pub fn from_http(
     url: &Url,
 ) -> Result<impl Iterator<Item = std::io::Result<String>>, Box<dyn std::error::Error>> {
-    let response = Client::new().get(url.as_str()).send()?.error_for_status()?;
+    let response = blocking::get(url.as_str())?.error_for_status()?;
     Ok(decompress_and_stream(response))
 }
 
