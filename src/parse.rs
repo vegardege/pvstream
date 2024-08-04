@@ -31,19 +31,19 @@ static WIKIMEDIA_PROJECTS: LazyLock<HashMap<&'static str, &'static str>> = LazyL
     ])
 });
 
-#[derive(Clone, Debug)]
-struct DomainCode {
-    language: String,
-    domain: Option<String>,
-    mobile: bool,
+#[derive(Debug)]
+pub struct DomainCode<'a> {
+    pub language: &'a str,
+    pub domain: Option<&'a str>,
+    pub mobile: bool,
 }
 
 #[derive(Debug)]
-struct PageviewsRow<'a> {
-    domain_code: Cow<'a, str>,
-    page_title: Cow<'a, str>,
-    views: u32,
-    parsed_domain_code: DomainCode,
+pub struct PageviewsRow<'a> {
+    pub domain_code: &'a str,
+    pub page_title: Cow<'a, str>,
+    pub views: u32,
+    pub parsed_domain_code: DomainCode<'a>,
 }
 
 /// Normalizes a string in the Wikimedia custom file format.
@@ -76,8 +76,8 @@ fn parse_domain_code(domain_code: &str) -> Option<DomainCode> {
     // non-mobile site or "commons.m.m" for the mobile site.
     if let Some(domain) = WIKIMEDIA_PROJECTS.get(first) {
         return Some(DomainCode {
-            language: "en".to_string(),
-            domain: Some(domain.to_string()),
+            language: "en",
+            domain: Some(domain),
             mobile: third.is_some(),
         });
     }
@@ -86,38 +86,38 @@ fn parse_domain_code(domain_code: &str) -> Option<DomainCode> {
         // A weird edge case where the domain_code is only a quoted
         // blank string. It appears to be wikifunctions, but is not
         // documented.
-        ("", None, None) => Some(DomainCode {
-            language: "en".to_string(),
-            domain: Some("wikifunctions.org".to_string()),
+        (r#""""#, None, None) => Some(DomainCode {
+            language: "en",
+            domain: Some("wikifunctions.org"),
             mobile: false,
         }),
         // If we only get one part, it's always a language code from a
         // non-mobile wikipedia.org page, e.g. "en" or "no".
         (language, None, None) => Some(DomainCode {
-            language: language.to_string(),
-            domain: Some("wikipedia.org".to_string()),
+            language,
+            domain: Some("wikipedia.org"),
             mobile: false,
         }),
         // Two parts, one of which is "m" or "zero", is a mobile page
         // on wikipedia.org, e.g. "en.m" or "no.zero".
         (language, Some("m" | "zero"), None) => Some(DomainCode {
-            language: language.to_string(),
-            domain: Some("wikipedia.org".to_string()),
+            language,
+            domain: Some("wikipedia.org"),
             mobile: true,
         }),
         // Two parts without one of the mobile markers is a non-mobile
         // page from a Wikimedia project other than wikipedia.org, e.g.
         // "en.b" for "en.wikibooks.org".
         (language, Some(code), None) => Some(DomainCode {
-            language: language.to_string(),
-            domain: DOMAINS.get(code).map(|s| s.to_string()),
+            language,
+            domain: DOMAINS.get(code).cloned(),
             mobile: false,
         }),
         // Three parts is a mobile page from a Wikimedia project other
         // than wikipedia.org, e.g. "en.m.b" for "en.m.wikibooks.org".
         (language, Some(_), Some(code)) => Some(DomainCode {
-            language: language.to_string(),
-            domain: DOMAINS.get(code).map(|s| s.to_string()),
+            language,
+            domain: DOMAINS.get(code).cloned(),
             mobile: true,
         }),
         // Unreachable fallback.
@@ -131,11 +131,11 @@ fn parse_domain_code(domain_code: &str) -> Option<DomainCode> {
 /// numbers. The strings can be quoted with escapes for the quote sign.
 /// The first column, domain code, is a dot separated string, which is
 /// broken into subcomponents in the returned struct.
-fn parse_line<'a>(line: &'a str) -> Result<PageviewsRow<'a>, String> {
+pub fn parse_line<'a>(line: &'a str) -> Result<PageviewsRow<'a>, String> {
     let mut parts = line.splitn(4, ' ');
 
     // We expect each line to have at least three columns.
-    let domain_code = normalize_string(parts.next().ok_or("Missing domain code")?);
+    let domain_code = parts.next().ok_or("Missing domain code")?;
     let page_title = normalize_string(parts.next().ok_or("Missing page title")?);
     let views = parts
         .next()
@@ -185,7 +185,7 @@ mod tests {
     fn test_wikipedia_plain() {
         let result = parse_domain_code("en").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("wikipedia.org".to_string()));
+        assert_eq!(result.domain, Some("wikipedia.org"));
         assert!(!result.mobile);
     }
 
@@ -193,7 +193,7 @@ mod tests {
     fn test_wikipedia_mobile() {
         let result = parse_domain_code("no.m").unwrap();
         assert_eq!(result.language, "no");
-        assert_eq!(result.domain, Some("wikipedia.org".to_string()));
+        assert_eq!(result.domain, Some("wikipedia.org"));
         assert!(result.mobile);
     }
 
@@ -201,7 +201,7 @@ mod tests {
     fn test_other_project() {
         let result = parse_domain_code("fr.v").unwrap();
         assert_eq!(result.language, "fr");
-        assert_eq!(result.domain, Some("wikiversity.org".to_string()));
+        assert_eq!(result.domain, Some("wikiversity.org"));
         assert!(!result.mobile);
     }
 
@@ -209,7 +209,7 @@ mod tests {
     fn test_other_project_mobile() {
         let result = parse_domain_code("fr.m.v").unwrap();
         assert_eq!(result.language, "fr");
-        assert_eq!(result.domain, Some("wikiversity.org".to_string()));
+        assert_eq!(result.domain, Some("wikiversity.org"));
         assert!(result.mobile);
     }
 
@@ -217,7 +217,7 @@ mod tests {
     fn test_wikimedia_project() {
         let result = parse_domain_code("commons.m").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("commons.wikimedia.org".to_string()));
+        assert_eq!(result.domain, Some("commons.wikimedia.org"));
         assert!(!result.mobile);
     }
 
@@ -225,15 +225,15 @@ mod tests {
     fn test_wikimedia_mobile() {
         let result = parse_domain_code("meta.m.m").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("meta.wikimedia.org".to_string()));
+        assert_eq!(result.domain, Some("meta.wikimedia.org"));
         assert!(result.mobile);
     }
 
     #[test]
-    fn test_blank_domain_code() {
-        let result = parse_domain_code("").unwrap();
+    fn test_empty_quotes_domain_code() {
+        let result = parse_domain_code(r#""""#).unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("wikifunctions.org".to_string()));
+        assert_eq!(result.domain, Some("wikifunctions.org"));
         assert!(!result.mobile);
     }
 
@@ -252,10 +252,7 @@ mod tests {
         assert_eq!(result.page_title, "Copenhagen");
         assert_eq!(result.views, 54);
         assert_eq!(result.parsed_domain_code.language, "en");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikipedia.org".to_string())
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
         assert!(result.parsed_domain_code.mobile);
     }
 
@@ -266,10 +263,7 @@ mod tests {
         assert_eq!(result.page_title, r"\(^o^)/チエ");
         assert_eq!(result.views, 1);
         assert_eq!(result.parsed_domain_code.language, "ja");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikipedia.org".to_string())
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
         assert!(!result.parsed_domain_code.mobile);
     }
 
@@ -283,10 +277,7 @@ mod tests {
         );
         assert_eq!(result.views, 1);
         assert_eq!(result.parsed_domain_code.language, "vi");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikipedia.org".to_string())
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
         assert!(result.parsed_domain_code.mobile);
     }
 
@@ -297,10 +288,7 @@ mod tests {
         assert_eq!(result.page_title, "Ядро_Linux/Модулі");
         assert_eq!(result.views, 2);
         assert_eq!(result.parsed_domain_code.language, "uk");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikibooks.org".to_string())
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikibooks.org"));
         assert!(!result.parsed_domain_code.mobile);
     }
 }
