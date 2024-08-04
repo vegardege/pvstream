@@ -1,1 +1,6 @@
+# Rust builds
 /target
+
+# Python virtual environment
+.venv/
+

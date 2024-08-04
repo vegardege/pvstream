@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::LazyLock;
+use thiserror::Error;
 
 static DOMAINS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     HashMap::from([
@@ -30,6 +31,23 @@ static WIKIMEDIA_PROJECTS: LazyLock<HashMap<&'static str, &'static str>> = LazyL
         ("quality", "quality.wikimedia.org"),
     ])
 });
+
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("Field '{0}' was not found:\n{1}")]
+    MissingField(&'static str, String),
+
+    #[error("Invalid '{0}':\n{1}")]
+    InvalidField(&'static str, String),
+}
+
+fn missing(field: &'static str, line: &str) -> ParseError {
+    ParseError::MissingField(field, line.to_string())
+}
+
+fn invalid(field: &'static str, line: &str) -> ParseError {
+    ParseError::InvalidField(field, line.to_string())
+}
 
 #[derive(Debug)]
 pub struct DomainCode<'a> {
@@ -64,64 +82,64 @@ fn normalize_string<'a>(value: &'a str) -> Cow<'a, str> {
 ///
 /// Domain codes follow the pattern defined by the Wikimedia traffic pipeline:
 /// https://wikitech.wikimedia.org/wiki/Data_Platform/Data_Lake/Traffic/Pageviews
-fn parse_domain_code(domain_code: &str) -> Option<DomainCode> {
-    // The domain code is split in 1-3 parts, separated by periods
+fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
+    // The domain code is split in 1-3 parts, separated by periods. These parts
+    // will not always have the same meaning, hence the non-descriptive names.
     let mut parts = domain_code.splitn(3, '.');
-    let first = parts.next().unwrap_or("");
+
+    let first = parts
+        .next()
+        .ok_or_else(|| invalid("domain code", domain_code))?;
     let second = parts.next();
     let third = parts.next();
 
-    // As an edge case, domain codes starting with a white listed Wikimedia
-    // project name follows a separate pattern, e.g. "commons.m" for the
-    // non-mobile site or "commons.m.m" for the mobile site.
-    if let Some(domain) = WIKIMEDIA_PROJECTS.get(first) {
-        return Some(DomainCode {
-            language: "en",
-            domain: Some(domain),
-            mobile: third.is_some(),
-        });
-    }
-
     match (first, second, third) {
-        // A weird edge case where the domain_code is only a quoted
-        // blank string. It appears to be wikifunctions, but is not
-        // documented.
-        (r#""""#, None, None) => Some(DomainCode {
+        // As an edge case, domain codes starting with a white listed Wikimedia
+        // project name follows a separate pattern, e.g. "commons.m" for the
+        // non-mobile site or "commons.m.m" for the mobile site.
+        (project, _, _) if WIKIMEDIA_PROJECTS.contains_key(project) => Ok(DomainCode {
+            language: "en",
+            domain: WIKIMEDIA_PROJECTS.get(project).copied(),
+            mobile: third.is_some(),
+        }),
+        // A weird edge case where the domain_code is only a quoted blank
+        // string. It appears to be wikifunctions, but is not documented.
+        (r#""""#, None, None) => Ok(DomainCode {
             language: "en",
             domain: Some("wikifunctions.org"),
             mobile: false,
         }),
         // If we only get one part, it's always a language code from a
         // non-mobile wikipedia.org page, e.g. "en" or "no".
-        (language, None, None) => Some(DomainCode {
+        (language, None, None) => Ok(DomainCode {
             language,
             domain: Some("wikipedia.org"),
             mobile: false,
         }),
-        // Two parts, one of which is "m" or "zero", is a mobile page
-        // on wikipedia.org, e.g. "en.m" or "no.zero".
-        (language, Some("m" | "zero"), None) => Some(DomainCode {
+        // Two parts, one of which is "m" or "zero", is a mobile page on
+        // wikipedia.org, e.g. "en.m" or "no.zero".
+        (language, Some("m" | "zero"), None) => Ok(DomainCode {
             language,
             domain: Some("wikipedia.org"),
             mobile: true,
         }),
-        // Two parts without one of the mobile markers is a non-mobile
-        // page from a Wikimedia project other than wikipedia.org, e.g.
-        // "en.b" for "en.wikibooks.org".
-        (language, Some(code), None) => Some(DomainCode {
+        // Two parts without one of the mobile markers is a non-mobile page
+        // from a Wikimedia project other than wikipedia.org, e.g. "en.b"
+        // for "en.wikibooks.org".
+        (language, Some(code), None) => Ok(DomainCode {
             language,
-            domain: DOMAINS.get(code).cloned(),
+            domain: DOMAINS.get(code).copied(),
             mobile: false,
         }),
-        // Three parts is a mobile page from a Wikimedia project other
-        // than wikipedia.org, e.g. "en.m.b" for "en.m.wikibooks.org".
-        (language, Some(_), Some(code)) => Some(DomainCode {
+        // Three parts is a mobile page from a Wikimedia project other than
+        // wikipedia.org, e.g. "en.m.b" for "en.m.wikibooks.org".
+        (language, Some(_), Some(code)) => Ok(DomainCode {
             language,
-            domain: DOMAINS.get(code).cloned(),
+            domain: DOMAINS.get(code).copied(),
             mobile: true,
         }),
         // Unreachable fallback.
-        _ => None,
+        _ => Err(invalid("domain code", domain_code)),
     }
 }
 
@@ -131,19 +149,19 @@ fn parse_domain_code(domain_code: &str) -> Option<DomainCode> {
 /// numbers. The strings can be quoted with escapes for the quote sign.
 /// The first column, domain code, is a dot separated string, which is
 /// broken into subcomponents in the returned struct.
-pub fn parse_line<'a>(line: &'a str) -> Result<PageviewsRow<'a>, String> {
+pub fn parse_line<'a>(line: &'a str) -> Result<PageviewsRow<'a>, ParseError> {
     let mut parts = line.splitn(4, ' ');
 
-    // We expect each line to have at least three columns.
-    let domain_code = parts.next().ok_or("Missing domain code")?;
-    let page_title = normalize_string(parts.next().ok_or("Missing page title")?);
+    let domain_code = parts.next().ok_or_else(|| missing("domain code", line))?;
+    let page_title_raw = parts.next().ok_or_else(|| missing("page title", line))?;
     let views = parts
         .next()
-        .ok_or("Missing view count")?
+        .ok_or_else(|| missing("views", line))?
         .parse::<u32>()
-        .map_err(|_| "Invalid view count")?;
+        .map_err(|_| invalid("views", line))?;
 
-    let parsed_domain_code = parse_domain_code(&domain_code).ok_or("Invalid domain code")?;
+    let page_title = normalize_string(page_title_raw);
+    let parsed_domain_code = parse_domain_code(&domain_code)?;
 
     Ok(PageviewsRow {
         domain_code,
@@ -290,5 +308,33 @@ mod tests {
         assert_eq!(result.parsed_domain_code.language, "uk");
         assert_eq!(result.parsed_domain_code.domain, Some("wikibooks.org"));
         assert!(!result.parsed_domain_code.mobile);
+    }
+
+    #[test]
+    fn test_missing_fields() {
+        let missing_page_title = parse_line("").unwrap_err();
+        assert!(matches!(
+            missing_page_title,
+            ParseError::MissingField("page title", _)
+        ));
+
+        let missing_views = parse_line("en.m Hello_World").unwrap_err();
+        assert!(matches!(
+            missing_views,
+            ParseError::MissingField("views", _)
+        ));
+    }
+
+    #[test]
+    fn test_invalid_fields() {
+        // Invalid domain code is currently unreachable. Maybe we should be
+        // stricter about validating it and returning errors, but I suspect
+        // it's better to be flexible about the format.
+
+        let invalid_views = parse_line("en.m Hello World 1 0").unwrap_err();
+        assert!(matches!(
+            invalid_views,
+            ParseError::InvalidField("views", _)
+        ));
     }
 }
