@@ -136,7 +136,7 @@ fn py_stream_from_url(url: &str, line_regex: Option<&str>) -> PyResult<PyRowIter
 }
 
 #[pymodule]
-fn pvvortex(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pvstream(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyPageviews>()?;
     m.add_function(wrap_pyfunction!(py_stream_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(py_stream_from_url, m)?)?;
