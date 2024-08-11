@@ -1,17 +1,30 @@
-use crate::parse::{DomainCode, PageviewsRow};
-use crate::{RowError, RowIterator, stream_from_file, stream_from_http};
+use crate::parse::{DomainCode, PageviewsRow, ParseError};
+use crate::stream::StreamError;
+use crate::{RowIterator, stream_from_file, stream_from_http};
 use pyo3::exceptions::PyIOError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use std::path::Path;
+use regex::Regex;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use url::Url;
 
-impl From<RowError> for PyErr {
-    fn from(err: RowError) -> Self {
+impl From<StreamError> for PyErr {
+    fn from(err: StreamError) -> Self {
         match err {
-            RowError::Io(io_err) => PyIOError::new_err(io_err.to_string()),
-            RowError::Parse(parse_err) => PyValueError::new_err(parse_err.to_string()),
+            StreamError::Http(e) => PyIOError::new_err(e.to_string()),
+            StreamError::Url(e) => PyIOError::new_err(e.to_string()),
+            StreamError::Io(e) => PyIOError::new_err(e.to_string()),
+        }
+    }
+}
+
+impl From<ParseError> for PyErr {
+    fn from(err: ParseError) -> Self {
+        match err {
+            ParseError::MissingField(_, e) => PyIOError::new_err(e.to_string()),
+            ParseError::InvalidField(_, e) => PyValueError::new_err(e.to_string()),
+            ParseError::ReadError(e) => PyIOError::new_err(e.to_string()),
         }
     }
 }
@@ -82,23 +95,32 @@ impl PyPageviewsRow {
 
 #[pyclass(name = "RowIterator")]
 struct PyRowIterator {
-    iter: Mutex<RowIterator>,
+    iterator: Mutex<RowIterator>,
 }
 
 #[pymethods]
 impl PyRowIterator {
     #[new]
-    fn new(source: &str) -> PyResult<Self> {
-        let iter = if source.starts_with("http") {
-            let url = Url::parse(source).map_err(|e| PyValueError::new_err(e.to_string()))?;
-            stream_from_http(url)?
-        } else {
-            let path = Path::new(source);
-            stream_from_file(path)?
+    fn new(path: Option<&str>, url: Option<&str>, line_regex: Option<&str>) -> PyResult<Self> {
+        let line_regex = line_regex
+            .map(|pattern| Regex::new(pattern))
+            .transpose()
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        let iterator = match (path, url) {
+            (Some(path), None) => {
+                let path = PathBuf::from(path);
+                stream_from_file(path, line_regex)?
+            }
+            (None, Some(url)) => {
+                let url = Url::parse(url).map_err(|e| PyValueError::new_err(e.to_string()))?;
+                stream_from_http(url, line_regex)?
+            }
+            _ => return Err(PyValueError::new_err("`path` or `url` must be provided")),
         };
 
         Ok(Self {
-            iter: Mutex::new(iter),
+            iterator: Mutex::new(iterator),
         })
     }
 
@@ -107,7 +129,7 @@ impl PyRowIterator {
     }
 
     fn __next__(slf: PyRefMut<'_, Self>) -> PyResult<Option<PyPageviewsRow>> {
-        match slf.iter.lock().unwrap().next() {
+        match slf.iterator.lock().unwrap().next() {
             Some(Ok(row)) => Ok(Some(row.into())),
             Some(Err(err)) => Err(err.into()),
             None => Ok(None),
@@ -116,14 +138,22 @@ impl PyRowIterator {
 }
 
 #[pyfunction]
-fn stream_lines(source: &str) -> PyResult<PyRowIterator> {
-    PyRowIterator::new(&source)
+#[pyo3(name="stream_from_file", signature = (path, line_regex=None))]
+fn py_stream_from_file(path: &str, line_regex: Option<&str>) -> PyResult<PyRowIterator> {
+    PyRowIterator::new(Some(path), None, line_regex)
+}
+
+#[pyfunction]
+#[pyo3(name="stream_from_url", signature = (url, line_regex=None))]
+fn py_stream_from_url(url: &str, line_regex: Option<&str>) -> PyResult<PyRowIterator> {
+    PyRowIterator::new(None, Some(url), line_regex)
 }
 
 #[pymodule]
 fn pvvortex(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyPageviewsRow>()?;
     m.add_class::<PyDomainCode>()?;
-    m.add_function(wrap_pyfunction!(stream_lines, m)?)?;
+    m.add_function(wrap_pyfunction!(py_stream_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(py_stream_from_url, m)?)?;
     Ok(())
 }

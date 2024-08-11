@@ -10,7 +10,7 @@ use thiserror::Error;
 use url::ParseError as UrlParseError;
 use url::Url;
 
-type LineReader = Box<dyn Iterator<Item = Result<String, StreamError>> + Send>;
+type LineReader = Box<dyn Iterator<Item = Result<String, IoError>> + Send>;
 
 #[derive(Debug, Error)]
 pub enum StreamError {
@@ -41,10 +41,10 @@ impl<R: BufRead> OwnedLines<R> {
 }
 
 impl<R: BufRead + Send + 'static> Iterator for OwnedLines<R> {
-    type Item = Result<String, StreamError>;
+    type Item = Result<String, IoError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.lines.next().map(|res| res.map_err(StreamError::Io))
+        self.lines.next()
     }
 }
 
@@ -67,13 +67,13 @@ pub fn http_to_file(url: &Url, path: &Path) -> Result<(), StreamError> {
 }
 
 /// Creates an iterator to extract lines from a gzipped file on the local fs
-pub fn from_file(path: &Path) -> Result<LineReader, StreamError> {
+pub fn lines_from_file(path: &Path) -> Result<LineReader, StreamError> {
     let file = File::open(path)?;
     Ok(Box::new(decompress_and_stream(file)))
 }
 
 /// Creates an iterator to extract lines from a gzipped file server over HTTP
-pub fn from_http(url: Url) -> Result<LineReader, StreamError> {
+pub fn lines_from_http(url: Url) -> Result<LineReader, StreamError> {
     let response = blocking::get(url)?.error_for_status()?;
     Ok(Box::new(decompress_and_stream(response)))
 }
@@ -81,7 +81,7 @@ pub fn from_http(url: Url) -> Result<LineReader, StreamError> {
 /// Creates an iterator to extract lines from a gzipped file
 ///
 /// Works with files from the local file system or a remote server.
-fn decompress_and_stream<R>(source: R) -> impl Iterator<Item = Result<String, StreamError>> + Send
+fn decompress_and_stream<R>(source: R) -> impl Iterator<Item = Result<String, IoError>> + Send
 where
     R: Read + Send + 'static,
 {

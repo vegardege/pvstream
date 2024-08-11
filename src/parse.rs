@@ -38,6 +38,9 @@ pub enum ParseError {
 
     #[error("Invalid '{0}':\n{1}")]
     InvalidField(&'static str, String),
+
+    #[error(transparent)]
+    ReadError(#[from] std::io::Error),
 }
 
 fn missing(field: &'static str, line: &str) -> ParseError {
