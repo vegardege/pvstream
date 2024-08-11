@@ -1,7 +1,9 @@
 pub mod parse;
-pub mod python;
 mod sift;
 pub mod stream;
+
+#[cfg(feature = "pyo3")]
+pub mod python;
 
 use crate::parse::{Pageviews, ParseError, parse_line};
 use regex::Regex;

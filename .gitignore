@@ -4,3 +4,5 @@
 # Python virtual environment
 .venv/
 
+# Visual Studio Code settings
+.vscode/
