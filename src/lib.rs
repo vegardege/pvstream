@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use stream::{StreamError, lines_from_file, lines_from_http};
 use url::Url;
 
-pub type RowIterator = Box<dyn Iterator<Item = Result<Pageviews, ParseError>> + Send>;
+pub type RowIterator = Box<dyn Iterator<Item = Result<Pageviews, ParseError>> + Send + 'static>;
 
 /// Decompress, stream, and parse lines from a local pageviews file
 ///

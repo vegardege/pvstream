@@ -2,8 +2,7 @@ use crate::filter::Filters;
 use crate::parse::{Pageviews, ParseError};
 use crate::stream::StreamError;
 use crate::{RowIterator, stream_from_file, stream_from_http};
-use pyo3::exceptions::PyIOError;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyIOError, PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use regex::Regex;
 use std::path::PathBuf;
@@ -23,13 +22,18 @@ impl From<StreamError> for PyErr {
 impl From<ParseError> for PyErr {
     fn from(err: ParseError) -> Self {
         match err {
-            ParseError::MissingField(_, e) => PyIOError::new_err(e.to_string()),
+            ParseError::MissingField(_, e) => PyIndexError::new_err(e.to_string()),
             ParseError::InvalidField(_, e) => PyValueError::new_err(e.to_string()),
             ParseError::ReadError(e) => PyIOError::new_err(e.to_string()),
         }
     }
 }
 
+/// Represents a single row from a pageviews file
+///
+/// `domain_code`, `page_title`, and `views` are the three columns from the
+/// file itself. `language`, `domain`, and `mobile` are parsed from the
+/// domain code.
 #[pyclass(name = "Pageviews")]
 pub struct PyPageviews {
     #[pyo3(get)]
@@ -88,15 +92,37 @@ struct PyRowIterator {
 #[pymethods]
 impl PyRowIterator {
     #[new]
-    fn new(path: Option<&str>, url: Option<&str>, line_regex: Option<&str>) -> PyResult<Self> {
+    fn new(
+        path: Option<String>,
+        url: Option<String>,
+        line_regex: Option<String>,
+        domain_codes: Option<Vec<String>>,
+        page_title: Option<String>,
+        min_views: Option<u32>,
+        max_views: Option<u32>,
+        languages: Option<Vec<String>>,
+        domains: Option<Vec<String>>,
+        mobile: Option<bool>,
+    ) -> PyResult<Self> {
         let line_regex = line_regex
-            .map(|pattern| Regex::new(pattern))
+            .map(|pattern| Regex::new(&pattern))
+            .transpose()
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        let page_title = page_title
+            .map(|pattern| Regex::new(&pattern))
             .transpose()
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
         let filters = Filters {
             line_regex,
-            ..Default::default()
+            domain_codes,
+            page_title,
+            min_views,
+            max_views,
+            languages,
+            domains,
+            mobile,
         };
 
         let iterator = match (path, url) {
@@ -105,7 +131,7 @@ impl PyRowIterator {
                 stream_from_file(path, &filters)?
             }
             (None, Some(url)) => {
-                let url = Url::parse(url).map_err(|e| PyValueError::new_err(e.to_string()))?;
+                let url = Url::parse(&url).map_err(|e| PyValueError::new_err(e.to_string()))?;
                 stream_from_http(url, &filters)?
             }
             _ => return Err(PyValueError::new_err("`path` or `url` must be provided")),
@@ -129,16 +155,114 @@ impl PyRowIterator {
     }
 }
 
+/// Stream a pageviews file from disk with optional filters.
+///
+/// Parameters:
+///     path (str): Path to the pageviews file.
+///     line_regex (str | None): Optional regex to match lines before parsing.
+///     domain_codes (list[str] | None): List of domain codes to match exactly.
+///     page_title (str | None): Optional regex to match parsed page title.
+///     min_views (int | None): Minimum number of views.
+///     max_views (int | None): Maximum number of views.
+///     languages (list[str] | None): Filter by language codes.
+///     domains (list[str] | None): Filter by Wikimedia domain.
+///     mobile (bool | None): Filter mobile or desktop traffic.
+///
+/// Returns:
+///     RowIterator: An iterator over parsed Pageviews.
+///
+/// Raises:
+///     IOError: If the file can't be read.
+///     ParseError: If parsing fails.
+///
+/// Example:
+///     >>> stream_from_file("pageviews.gz", languages=["de"], mobile=True)
 #[pyfunction]
-#[pyo3(name="stream_from_file", signature = (path, line_regex=None))]
-fn py_stream_from_file(path: &str, line_regex: Option<&str>) -> PyResult<PyRowIterator> {
-    PyRowIterator::new(Some(path), None, line_regex)
+#[pyo3(
+    name="stream_from_file",
+    signature = (
+        path, line_regex=None, domain_codes=None, page_title=None,
+        min_views=None, max_views=None, languages=None, domains=None,
+        mobile=None)
+)]
+fn py_stream_from_file(
+    path: String,
+    line_regex: Option<String>,
+    domain_codes: Option<Vec<String>>,
+    page_title: Option<String>,
+    min_views: Option<u32>,
+    max_views: Option<u32>,
+    languages: Option<Vec<String>>,
+    domains: Option<Vec<String>>,
+    mobile: Option<bool>,
+) -> PyResult<PyRowIterator> {
+    PyRowIterator::new(
+        Some(path),
+        None,
+        line_regex,
+        domain_codes,
+        page_title,
+        min_views,
+        max_views,
+        languages,
+        domains,
+        mobile,
+    )
 }
 
+/// Stream a pageviews file from a remote server with optional filters.
+///
+/// Parameters:
+///     url (str): URL to the pageviews file.
+///     line_regex (str | None): Optional regex to match lines before parsing.
+///     domain_codes (list[str] | None): List of domain codes to match exactly.
+///     page_title (str | None): Optional regex to match parsed page title.
+///     min_views (int | None): Minimum number of views.
+///     max_views (int | None): Maximum number of views.
+///     languages (list[str] | None): Filter by language codes.
+///     domains (list[str] | None): Filter by Wikimedia domain.
+///     mobile (bool | None): Filter mobile or desktop traffic.
+///
+/// Returns:
+///     RowIterator: An iterator over parsed Pageviews.
+///
+/// Raises:
+///     IOError: If the file can't be read.
+///     ParseError: If parsing fails.
+///
+/// Example:
+///     >>> stream_from_url("http://127.0.0.1/pageviews.gz", domains=["wikibooks.org"])
 #[pyfunction]
-#[pyo3(name="stream_from_url", signature = (url, line_regex=None))]
-fn py_stream_from_url(url: &str, line_regex: Option<&str>) -> PyResult<PyRowIterator> {
-    PyRowIterator::new(None, Some(url), line_regex)
+#[pyo3(
+    name="stream_from_url",
+    signature = (
+        url, line_regex=None, domain_codes=None, page_title=None,
+        min_views=None, max_views=None, languages=None, domains=None,
+        mobile=None)
+)]
+fn py_stream_from_url(
+    url: String,
+    line_regex: Option<String>,
+    domain_codes: Option<Vec<String>>,
+    page_title: Option<String>,
+    min_views: Option<u32>,
+    max_views: Option<u32>,
+    languages: Option<Vec<String>>,
+    domains: Option<Vec<String>>,
+    mobile: Option<bool>,
+) -> PyResult<PyRowIterator> {
+    PyRowIterator::new(
+        None,
+        Some(url),
+        line_regex,
+        domain_codes,
+        page_title,
+        min_views,
+        max_views,
+        languages,
+        domains,
+        mobile,
+    )
 }
 
 #[pymodule]
