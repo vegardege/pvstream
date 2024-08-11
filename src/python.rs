@@ -1,3 +1,4 @@
+use crate::filter::Filters;
 use crate::parse::{Pageviews, ParseError};
 use crate::stream::StreamError;
 use crate::{RowIterator, stream_from_file, stream_from_http};
@@ -93,14 +94,19 @@ impl PyRowIterator {
             .transpose()
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
+        let filters = Filters {
+            line_regex,
+            ..Default::default()
+        };
+
         let iterator = match (path, url) {
             (Some(path), None) => {
                 let path = PathBuf::from(path);
-                stream_from_file(path, line_regex)?
+                stream_from_file(path, &filters)?
             }
             (None, Some(url)) => {
                 let url = Url::parse(url).map_err(|e| PyValueError::new_err(e.to_string()))?;
-                stream_from_http(url, line_regex)?
+                stream_from_http(url, &filters)?
             }
             _ => return Err(PyValueError::new_err("`path` or `url` must be provided")),
         };
