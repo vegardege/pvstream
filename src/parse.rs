@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 use thiserror::Error;
@@ -50,18 +49,18 @@ fn invalid(field: &'static str, line: &str) -> ParseError {
 }
 
 #[derive(Debug)]
-pub struct DomainCode<'a> {
-    pub language: &'a str,
-    pub domain: Option<&'a str>,
+pub struct DomainCode {
+    pub language: String,
+    pub domain: Option<&'static str>,
     pub mobile: bool,
 }
 
 #[derive(Debug)]
-pub struct PageviewsRow<'a> {
-    pub domain_code: &'a str,
-    pub page_title: Cow<'a, str>,
+pub struct PageviewsRow {
+    pub domain_code: String,
+    pub page_title: String,
     pub views: u32,
-    pub parsed_domain_code: DomainCode<'a>,
+    pub parsed_domain_code: DomainCode,
 }
 
 /// Normalizes a string in the Wikimedia custom file format.
@@ -70,11 +69,11 @@ pub struct PageviewsRow<'a> {
 /// be contained in a "". This only appears to happen for some empty strings and
 /// for strings containing a ", which is escaped to \". This behavior is not
 /// explicitly documented, so this function may have to be revised.
-fn normalize_string<'a>(value: &'a str) -> Cow<'a, str> {
+fn normalize_string(value: &str) -> String {
     if value.starts_with('"') && value.ends_with('"') {
-        Cow::Owned(value[1..value.len() - 1].replace(r#"\""#, r#"""#))
+        value[1..value.len() - 1].replace(r#"\""#, r#"""#)
     } else {
-        Cow::Borrowed(value)
+        value.to_string()
     }
 }
 
@@ -98,28 +97,28 @@ fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
         // project name follows a separate pattern, e.g. "commons.m" for the
         // non-mobile site or "commons.m.m" for the mobile site.
         (project, _, _) if WIKIMEDIA_PROJECTS.contains_key(project) => Ok(DomainCode {
-            language: "en",
+            language: "en".to_string(),
             domain: WIKIMEDIA_PROJECTS.get(project).copied(),
             mobile: third.is_some(),
         }),
         // A weird edge case where the domain_code is only a quoted blank
         // string. It appears to be wikifunctions, but is not documented.
         (r#""""#, None, None) => Ok(DomainCode {
-            language: "en",
+            language: "en".to_string(),
             domain: Some("wikifunctions.org"),
             mobile: false,
         }),
         // If we only get one part, it's always a language code from a
         // non-mobile wikipedia.org page, e.g. "en" or "no".
         (language, None, None) => Ok(DomainCode {
-            language,
+            language: language.into(),
             domain: Some("wikipedia.org"),
             mobile: false,
         }),
         // Two parts, one of which is "m" or "zero", is a mobile page on
         // wikipedia.org, e.g. "en.m" or "no.zero".
         (language, Some("m" | "zero"), None) => Ok(DomainCode {
-            language,
+            language: language.into(),
             domain: Some("wikipedia.org"),
             mobile: true,
         }),
@@ -127,14 +126,14 @@ fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
         // from a Wikimedia project other than wikipedia.org, e.g. "en.b"
         // for "en.wikibooks.org".
         (language, Some(code), None) => Ok(DomainCode {
-            language,
+            language: language.into(),
             domain: DOMAINS.get(code).copied(),
             mobile: false,
         }),
         // Three parts is a mobile page from a Wikimedia project other than
         // wikipedia.org, e.g. "en.m.b" for "en.m.wikibooks.org".
         (language, Some(_), Some(code)) => Ok(DomainCode {
-            language,
+            language: language.into(),
             domain: DOMAINS.get(code).copied(),
             mobile: true,
         }),
@@ -149,15 +148,18 @@ fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
 /// numbers. The strings can be quoted with escapes for the quote sign.
 /// The first column, domain code, is a dot separated string, which is
 /// broken into subcomponents in the returned struct.
-pub fn parse_line<'a>(line: &'a str) -> Result<PageviewsRow<'a>, ParseError> {
+pub fn parse_line(line: &str) -> Result<PageviewsRow, ParseError> {
     let mut parts = line.splitn(4, ' ');
 
-    let domain_code = parts.next().ok_or_else(|| missing("domain code", line))?;
+    let domain_code = parts
+        .next()
+        .ok_or_else(|| missing("domain code", line))?
+        .to_owned();
     let page_title_raw = parts.next().ok_or_else(|| missing("page title", line))?;
     let views = parts
         .next()
         .ok_or_else(|| missing("views", line))?
-        .parse::<u32>()
+        .parse()
         .map_err(|_| invalid("views", line))?;
 
     let page_title = normalize_string(page_title_raw);
@@ -203,7 +205,7 @@ mod tests {
     fn test_wikipedia_plain() {
         let result = parse_domain_code("en").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("wikipedia.org"));
+        assert_eq!(result.domain, Some("wikipedia.org".into()));
         assert!(!result.mobile);
     }
 
@@ -211,7 +213,7 @@ mod tests {
     fn test_wikipedia_mobile() {
         let result = parse_domain_code("no.m").unwrap();
         assert_eq!(result.language, "no");
-        assert_eq!(result.domain, Some("wikipedia.org"));
+        assert_eq!(result.domain, Some("wikipedia.org".into()));
         assert!(result.mobile);
     }
 
@@ -219,7 +221,7 @@ mod tests {
     fn test_other_project() {
         let result = parse_domain_code("fr.v").unwrap();
         assert_eq!(result.language, "fr");
-        assert_eq!(result.domain, Some("wikiversity.org"));
+        assert_eq!(result.domain, Some("wikiversity.org".into()));
         assert!(!result.mobile);
     }
 
@@ -227,7 +229,7 @@ mod tests {
     fn test_other_project_mobile() {
         let result = parse_domain_code("fr.m.v").unwrap();
         assert_eq!(result.language, "fr");
-        assert_eq!(result.domain, Some("wikiversity.org"));
+        assert_eq!(result.domain, Some("wikiversity.org".into()));
         assert!(result.mobile);
     }
 
@@ -235,7 +237,7 @@ mod tests {
     fn test_wikimedia_project() {
         let result = parse_domain_code("commons.m").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("commons.wikimedia.org"));
+        assert_eq!(result.domain, Some("commons.wikimedia.org".into()));
         assert!(!result.mobile);
     }
 
@@ -243,7 +245,7 @@ mod tests {
     fn test_wikimedia_mobile() {
         let result = parse_domain_code("meta.m.m").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("meta.wikimedia.org"));
+        assert_eq!(result.domain, Some("meta.wikimedia.org".into()));
         assert!(result.mobile);
     }
 
@@ -251,7 +253,7 @@ mod tests {
     fn test_empty_quotes_domain_code() {
         let result = parse_domain_code(r#""""#).unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("wikifunctions.org"));
+        assert_eq!(result.domain, Some("wikifunctions.org".into()));
         assert!(!result.mobile);
     }
 
@@ -265,29 +267,36 @@ mod tests {
 
     #[test]
     fn test_simple_line() {
-        let result = parse_line("en.m Copenhagen 54 0").unwrap();
+        let result = parse_line("en.m Copenhagen 54 0".into()).unwrap();
         assert_eq!(result.domain_code, "en.m");
         assert_eq!(result.page_title, "Copenhagen");
         assert_eq!(result.views, 54);
         assert_eq!(result.parsed_domain_code.language, "en");
-        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
+        assert_eq!(
+            result.parsed_domain_code.domain,
+            Some("wikipedia.org".into())
+        );
         assert!(result.parsed_domain_code.mobile);
     }
 
     #[test]
     fn test_utf8_line() {
-        let result = parse_line(r"ja \(^o^)/チエ 1 0").unwrap();
+        let result = parse_line(r"ja \(^o^)/チエ 1 0".into()).unwrap();
         assert_eq!(result.domain_code, "ja");
         assert_eq!(result.page_title, r"\(^o^)/チエ");
         assert_eq!(result.views, 1);
         assert_eq!(result.parsed_domain_code.language, "ja");
-        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
+        assert_eq!(
+            result.parsed_domain_code.domain,
+            Some("wikipedia.org".into())
+        );
         assert!(!result.parsed_domain_code.mobile);
     }
 
     #[test]
     fn test_quoted_line() {
-        let result = parse_line(r#"vi.m "\"Hello,_World!\"_(chương_trình_máy_tính)" 1 0"#).unwrap();
+        let result =
+            parse_line(r#"vi.m "\"Hello,_World!\"_(chương_trình_máy_tính)" 1 0"#.into()).unwrap();
         assert_eq!(result.domain_code, "vi.m");
         assert_eq!(
             result.page_title,
@@ -295,30 +304,36 @@ mod tests {
         );
         assert_eq!(result.views, 1);
         assert_eq!(result.parsed_domain_code.language, "vi");
-        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
+        assert_eq!(
+            result.parsed_domain_code.domain,
+            Some("wikipedia.org".into())
+        );
         assert!(result.parsed_domain_code.mobile);
     }
 
     #[test]
     fn test_wikibooks_line() {
-        let result = parse_line("uk.b Ядро_Linux/Модулі 2 0").unwrap();
+        let result = parse_line("uk.b Ядро_Linux/Модулі 2 0".into()).unwrap();
         assert_eq!(result.domain_code, "uk.b");
         assert_eq!(result.page_title, "Ядро_Linux/Модулі");
         assert_eq!(result.views, 2);
         assert_eq!(result.parsed_domain_code.language, "uk");
-        assert_eq!(result.parsed_domain_code.domain, Some("wikibooks.org"));
+        assert_eq!(
+            result.parsed_domain_code.domain,
+            Some("wikibooks.org".into())
+        );
         assert!(!result.parsed_domain_code.mobile);
     }
 
     #[test]
     fn test_missing_fields() {
-        let missing_page_title = parse_line("").unwrap_err();
+        let missing_page_title = parse_line("".into()).unwrap_err();
         assert!(matches!(
             missing_page_title,
             ParseError::MissingField("page title", _)
         ));
 
-        let missing_views = parse_line("en.m Hello_World").unwrap_err();
+        let missing_views = parse_line("en.m Hello_World".into()).unwrap_err();
         assert!(matches!(
             missing_views,
             ParseError::MissingField("views", _)
@@ -331,7 +346,7 @@ mod tests {
         // stricter about validating it and returning errors, but I suspect
         // it's better to be flexible about the format.
 
-        let invalid_views = parse_line("en.m Hello World 1 0").unwrap_err();
+        let invalid_views = parse_line("en.m Hello World 1 0".into()).unwrap_err();
         assert!(matches!(
             invalid_views,
             ParseError::InvalidField("views", _)
