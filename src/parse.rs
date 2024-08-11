@@ -148,19 +148,19 @@ fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
 /// numbers. The strings can be quoted with escapes for the quote sign.
 /// The first column, domain code, is a dot separated string, which is
 /// broken into subcomponents in the returned struct.
-pub fn parse_line(line: &str) -> Result<PageviewsRow, ParseError> {
+pub fn parse_line(line: String) -> Result<PageviewsRow, ParseError> {
     let mut parts = line.splitn(4, ' ');
 
     let domain_code = parts
         .next()
-        .ok_or_else(|| missing("domain code", line))?
+        .ok_or_else(|| missing("domain code", &line))?
         .to_owned();
-    let page_title_raw = parts.next().ok_or_else(|| missing("page title", line))?;
+    let page_title_raw = parts.next().ok_or_else(|| missing("page title", &line))?;
     let views = parts
         .next()
-        .ok_or_else(|| missing("views", line))?
+        .ok_or_else(|| missing("views", &line))?
         .parse()
-        .map_err(|_| invalid("views", line))?;
+        .map_err(|_| invalid("views", &line))?;
 
     let page_title = normalize_string(page_title_raw);
     let parsed_domain_code = parse_domain_code(&domain_code)?;

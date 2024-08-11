@@ -1,6 +1,5 @@
 use crate::parse::{DomainCode, PageviewsRow};
-use crate::stream::StreamError;
-use crate::{RowError, RowIterator, parse_lines_from_file, parse_lines_from_http};
+use crate::{RowError, RowIterator, stream_from_file, stream_from_http};
 use pyo3::exceptions::PyIOError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -16,17 +15,7 @@ impl From<RowError> for PyErr {
     }
 }
 
-impl From<StreamError> for PyErr {
-    fn from(err: StreamError) -> Self {
-        match err {
-            StreamError::Url(url_err) => PyValueError::new_err(url_err.to_string()),
-            StreamError::Http(io_err) => PyIOError::new_err(io_err.to_string()),
-            StreamError::Io(io_err) => PyIOError::new_err(io_err.to_string()),
-        }
-    }
-}
-
-#[pyclass]
+#[pyclass(name = "DomainCode")]
 #[derive(Clone)]
 pub struct PyDomainCode {
     #[pyo3(get)]
@@ -47,7 +36,17 @@ impl From<DomainCode> for PyDomainCode {
     }
 }
 
-#[pyclass]
+#[pymethods]
+impl PyDomainCode {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "DomainCode(language={:?}, domain={:?}, mobile={})",
+            self.language, self.domain, self.mobile
+        ))
+    }
+}
+
+#[pyclass(name = "PageviewsRow")]
 pub struct PyPageviewsRow {
     #[pyo3(get)]
     pub domain_code: String,
@@ -70,7 +69,17 @@ impl From<PageviewsRow> for PyPageviewsRow {
     }
 }
 
-#[pyclass]
+#[pymethods]
+impl PyPageviewsRow {
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "PageviewsRow(domain_code={:?}, page_title={:?}, views={})",
+            self.domain_code, self.page_title, self.views
+        ))
+    }
+}
+
+#[pyclass(name = "RowIterator")]
 struct PyRowIterator {
     iter: RowIterator,
 }
@@ -81,10 +90,10 @@ impl PyRowIterator {
     fn new(source: &str) -> PyResult<Self> {
         let iter = if source.starts_with("http") {
             let url = Url::parse(source).map_err(|e| PyValueError::new_err(e.to_string()))?;
-            parse_lines_from_http(url)?
+            stream_from_http(url)?
         } else {
             let path = Path::new(source);
-            parse_lines_from_file(path)?
+            stream_from_file(path)?
         };
 
         Ok(Self { iter })

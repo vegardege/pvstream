@@ -3,7 +3,6 @@ use reqwest::Error as ReqwestError;
 use reqwest::blocking;
 use std::fs::File;
 use std::io::Error as IoError;
-use std::io::Result as IoResult;
 use std::io::copy;
 use std::io::{BufRead, BufReader, Lines, Read};
 use std::path::Path;
@@ -11,17 +10,17 @@ use thiserror::Error;
 use url::ParseError as UrlParseError;
 use url::Url;
 
-type LineReader = Box<dyn Iterator<Item = std::io::Result<String>> + Send>;
+type LineReader = Box<dyn Iterator<Item = Result<String, StreamError>> + Send>;
 
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum StreamError {
-    #[error("HTTP error: {0}")]
+    #[error(transparent)]
     Http(#[from] ReqwestError),
 
-    #[error("I/O error: {0}")]
+    #[error(transparent)]
     Io(#[from] IoError),
 
-    #[error("URL error: {0}")]
+    #[error(transparent)]
     Url(#[from] UrlParseError),
 }
 
@@ -42,9 +41,10 @@ impl<R: BufRead> OwnedLines<R> {
 }
 
 impl<R: BufRead + Send + 'static> Iterator for OwnedLines<R> {
-    type Item = IoResult<String>;
+    type Item = Result<String, StreamError>;
+
     fn next(&mut self) -> Option<Self::Item> {
-        self.lines.next()
+        self.lines.next().map(|res| res.map_err(StreamError::Io))
     }
 }
 
@@ -81,7 +81,7 @@ pub fn from_http(url: Url) -> Result<LineReader, StreamError> {
 /// Creates an iterator to extract lines from a gzipped file
 ///
 /// Works with files from the local file system or a remote server.
-fn decompress_and_stream<R>(source: R) -> impl Iterator<Item = IoResult<String>> + Send
+fn decompress_and_stream<R>(source: R) -> impl Iterator<Item = Result<String, StreamError>> + Send
 where
     R: Read + Send + 'static,
 {
