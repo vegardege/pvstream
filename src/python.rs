@@ -1,4 +1,4 @@
-use crate::parse::{DomainCode, PageviewsRow, ParseError};
+use crate::parse::{Pageviews, ParseError};
 use crate::stream::StreamError;
 use crate::{RowIterator, stream_from_file, stream_from_http};
 use pyo3::exceptions::PyIOError;
@@ -29,9 +29,14 @@ impl From<ParseError> for PyErr {
     }
 }
 
-#[pyclass(name = "DomainCode")]
-#[derive(Clone)]
-pub struct PyDomainCode {
+#[pyclass(name = "Pageviews")]
+pub struct PyPageviews {
+    #[pyo3(get)]
+    pub domain_code: String,
+    #[pyo3(get)]
+    pub page_title: String,
+    #[pyo3(get)]
+    pub views: u32,
     #[pyo3(get)]
     pub language: String,
     #[pyo3(get)]
@@ -40,55 +45,36 @@ pub struct PyDomainCode {
     pub mobile: bool,
 }
 
-impl From<DomainCode> for PyDomainCode {
-    fn from(inner: DomainCode) -> Self {
-        Self {
-            language: inner.language,
-            domain: inner.domain.map(str::to_string),
-            mobile: inner.mobile,
-        }
-    }
-}
-
-#[pymethods]
-impl PyDomainCode {
-    fn __repr__(&self) -> PyResult<String> {
-        Ok(format!(
-            "DomainCode(language={:?}, domain={:?}, mobile={})",
-            self.language, self.domain, self.mobile
-        ))
-    }
-}
-
-#[pyclass(name = "PageviewsRow")]
-pub struct PyPageviewsRow {
-    #[pyo3(get)]
-    pub domain_code: String,
-    #[pyo3(get)]
-    pub page_title: String,
-    #[pyo3(get)]
-    pub views: u32,
-    #[pyo3(get)]
-    pub parsed_domain_code: PyDomainCode,
-}
-
-impl From<PageviewsRow> for PyPageviewsRow {
-    fn from(inner: PageviewsRow) -> Self {
+impl From<Pageviews> for PyPageviews {
+    fn from(inner: Pageviews) -> Self {
         Self {
             domain_code: inner.domain_code,
             page_title: inner.page_title,
             views: inner.views,
-            parsed_domain_code: inner.parsed_domain_code.into(),
+            language: inner.parsed_domain_code.language,
+            domain: inner.parsed_domain_code.domain.map(str::to_owned),
+            mobile: inner.parsed_domain_code.mobile,
         }
     }
 }
 
 #[pymethods]
-impl PyPageviewsRow {
+impl PyPageviews {
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "PageviewsRow(domain_code={:?}, page_title={:?}, views={})",
-            self.domain_code, self.page_title, self.views
+            "Pageviews(\
+                domain_code={:?}, \
+                page_title={:?}, \
+                views={}, \
+                language={:?}, \
+                domain={:?}, \
+                mobile={:?})",
+            self.domain_code,
+            self.page_title,
+            self.views,
+            self.language,
+            self.domain.as_deref().unwrap_or("None"),
+            self.mobile,
         ))
     }
 }
@@ -128,7 +114,7 @@ impl PyRowIterator {
         slf
     }
 
-    fn __next__(slf: PyRefMut<'_, Self>) -> PyResult<Option<PyPageviewsRow>> {
+    fn __next__(slf: PyRefMut<'_, Self>) -> PyResult<Option<PyPageviews>> {
         match slf.iterator.lock().unwrap().next() {
             Some(Ok(row)) => Ok(Some(row.into())),
             Some(Err(err)) => Err(err.into()),
@@ -151,8 +137,7 @@ fn py_stream_from_url(url: &str, line_regex: Option<&str>) -> PyResult<PyRowIter
 
 #[pymodule]
 fn pvvortex(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<PyPageviewsRow>()?;
-    m.add_class::<PyDomainCode>()?;
+    m.add_class::<PyPageviews>()?;
     m.add_function(wrap_pyfunction!(py_stream_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(py_stream_from_url, m)?)?;
     Ok(())

@@ -3,19 +3,19 @@ pub mod python;
 mod sift;
 pub mod stream;
 
-use crate::parse::{PageviewsRow, ParseError, parse_line};
+use crate::parse::{Pageviews, ParseError, parse_line};
 use regex::Regex;
 use sift::is_valid_line;
 use std::path::PathBuf;
 use stream::{StreamError, lines_from_file, lines_from_http};
 use url::Url;
 
-pub type RowIterator = Box<dyn Iterator<Item = Result<PageviewsRow, ParseError>> + Send>;
+pub type RowIterator = Box<dyn Iterator<Item = Result<Pageviews, ParseError>> + Send>;
 
 /// Decompress, stream, and parse lines from a local pageviews file
 ///
 /// The function will return a `StreamError` if it fails to read the file.
-/// Otherwise, it returns a `PageviewsRow` iterator, yielding a `ParseError`
+/// Otherwise, it returns a `Pageviews` iterator, yielding a `ParseError`
 /// for each line it fails to parse, either due to IO issues or a parsing
 /// error.
 pub fn stream_from_file(
@@ -32,7 +32,7 @@ pub fn stream_from_file(
 /// Decompress, stream, and parse lines from a remote pageviews file
 ///
 /// The function will return a `StreamError` if it fails to read the file.
-/// Otherwise, it returns a `PageviewsRow` iterator, yielding a `ParseError`
+/// Otherwise, it returns a `Pageviews` iterator, yielding a `ParseError`
 /// for each line it fails to parse, either due to IO issues or a parsing
 /// error.
 pub fn stream_from_http(url: Url, line_regex: Option<Regex>) -> Result<RowIterator, StreamError> {
