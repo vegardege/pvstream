@@ -89,3 +89,34 @@ where
     let reader = BufReader::with_capacity(256 * 1024, decoder);
     OwnedLines::new(reader)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stream_lines() -> Result<(), Box<dyn std::error::Error>> {
+        let base = std::env::current_dir().unwrap();
+        let path = base.join("tests/files/pageviews-20240803-060000.gz");
+
+        // Make sure we can open the file without a stream error
+        let f = lines_from_file(&path);
+        assert!(f.is_ok());
+
+        // Make sure we can read lines in the correct order
+        let mut iterator = f?;
+
+        assert_eq!(iterator.next().unwrap()?, "en.d circumfluebant 1 0");
+        assert_eq!(iterator.next().unwrap()?, "ko 서울_지하철_7호선 2 0");
+
+        // Make sure all lines can be read and that the line count is correct
+        let mut line_count = 2;
+        for line in iterator {
+            assert!(line.is_ok());
+            line_count += 1;
+        }
+        assert_eq!(line_count, 1000);
+
+        Ok(())
+    }
+}

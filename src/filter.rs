@@ -137,25 +137,23 @@ impl FilterBuilder {
 pub fn pre_filter<E>(filter: &Filter) -> Box<dyn Fn(&Result<String, E>) -> bool + Send + Sync> {
     if filter.has_pre_filters() {
         let regex = filter.line_regex.clone().unwrap();
-        Box::new(move |line| match line {
+        return Box::new(move |line| match line {
             Ok(line) => regex.is_match(&line),
             Err(_) => true, // Pass through to handle later
-        })
-    } else {
-        Box::new(|_| true)
+        });
     }
+    Box::new(|_| true)
 }
 
 pub fn post_filter<E>(filter: &Filter) -> Box<dyn Fn(&Result<Pageviews, E>) -> bool + Send + Sync> {
     if filter.has_post_filters() {
         let filter = filter.clone();
-        Box::new(move |result| match result {
+        return Box::new(move |result| match result {
             Ok(obj) => filter.post_filter(obj),
             Err(_) => true, // Pass through to handle later
-        })
-    } else {
-        Box::new(|_| true)
+        });
     }
+    Box::new(|_| true)
 }
 
 #[cfg(test)]

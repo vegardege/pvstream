@@ -9,31 +9,14 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use url::Url;
 
-impl From<StreamError> for PyErr {
-    fn from(err: StreamError) -> Self {
-        match err {
-            StreamError::Http(e) => PyIOError::new_err(e.to_string()),
-            StreamError::Url(e) => PyIOError::new_err(e.to_string()),
-            StreamError::Io(e) => PyIOError::new_err(e.to_string()),
-        }
-    }
-}
-
-impl From<ParseError> for PyErr {
-    fn from(err: ParseError) -> Self {
-        match err {
-            ParseError::MissingField(_, e) => PyIndexError::new_err(e.to_string()),
-            ParseError::InvalidField(_, e) => PyValueError::new_err(e.to_string()),
-            ParseError::ReadError(e) => PyIOError::new_err(e.to_string()),
-        }
-    }
-}
-
-/// Represents a single row from a pageviews file
+/// Represents a single row from a pageviews file.
 ///
 /// `domain_code`, `page_title`, and `views` are the three columns from the
 /// file itself. `language`, `domain`, and `mobile` are parsed from the
 /// domain code.
+///
+/// The struct has been flattened from the internal representation for a
+/// simpler representation in python, where we don't need internals.
 #[pyclass(name = "Pageviews")]
 pub struct PyPageviews {
     #[pyo3(get)]
@@ -48,19 +31,6 @@ pub struct PyPageviews {
     pub domain: Option<String>,
     #[pyo3(get)]
     pub mobile: bool,
-}
-
-impl From<Pageviews> for PyPageviews {
-    fn from(inner: Pageviews) -> Self {
-        Self {
-            domain_code: inner.domain_code,
-            page_title: inner.page_title,
-            views: inner.views,
-            language: inner.parsed_domain_code.language,
-            domain: inner.parsed_domain_code.domain.map(str::to_owned),
-            mobile: inner.parsed_domain_code.mobile,
-        }
-    }
 }
 
 #[pymethods]
@@ -81,6 +51,39 @@ impl PyPageviews {
             self.domain.as_deref().unwrap_or("None"),
             self.mobile,
         ))
+    }
+}
+
+impl From<Pageviews> for PyPageviews {
+    fn from(inner: Pageviews) -> Self {
+        Self {
+            domain_code: inner.domain_code,
+            page_title: inner.page_title,
+            views: inner.views,
+            language: inner.parsed_domain_code.language,
+            domain: inner.parsed_domain_code.domain.map(str::to_owned),
+            mobile: inner.parsed_domain_code.mobile,
+        }
+    }
+}
+
+impl From<StreamError> for PyErr {
+    fn from(err: StreamError) -> Self {
+        match err {
+            StreamError::Http(e) => PyIOError::new_err(e.to_string()),
+            StreamError::Url(e) => PyIOError::new_err(e.to_string()),
+            StreamError::Io(e) => PyIOError::new_err(e.to_string()),
+        }
+    }
+}
+
+impl From<ParseError> for PyErr {
+    fn from(err: ParseError) -> Self {
+        match err {
+            ParseError::MissingField(_, e) => PyIndexError::new_err(e.to_string()),
+            ParseError::InvalidField(_, e) => PyValueError::new_err(e.to_string()),
+            ParseError::ReadError(e) => PyIOError::new_err(e.to_string()),
+        }
     }
 }
 
@@ -134,7 +137,11 @@ impl PyRowIterator {
                 let url = Url::parse(&url).map_err(|e| PyValueError::new_err(e.to_string()))?;
                 stream_from_http(url, &filter)?
             }
-            _ => return Err(PyValueError::new_err("`path` or `url` must be provided")),
+            _ => {
+                return Err(PyValueError::new_err(
+                    "`path` or `url` must be provided, but not both",
+                ));
+            }
         };
 
         Ok(Self {
@@ -173,7 +180,7 @@ impl PyRowIterator {
 ///
 /// Raises:
 ///     IOError: If the file can't be read.
-///     ParseError: If parsing fails.
+///     ParseError: If parsing one of the rows fails.
 ///
 /// Example:
 ///     >>> stream_from_file("pageviews.gz", languages=["de"], mobile=True)
