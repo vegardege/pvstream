@@ -24,46 +24,99 @@ fn create_schema() -> Schema {
     ])
 }
 
-/// Convert the iterator of structs to an arrow chunk.
-///
-/// Note that the entire dataset will be moved to memory if you call this
-/// function, but it's basically the best you can do if you want to work
-/// on it in memory.
-pub fn arrow_from_structs(
-    iterator: impl Iterator<Item = Result<Pageviews, ParseError>>,
-) -> Result<Chunk<Arc<dyn Array>>, arrow2::error::Error> {
-    let mut domain_code_builder: MutableDictionaryArray<i32, MutableUtf8Array<i32>> =
-        MutableDictionaryArray::new();
-    let mut page_title_builder = MutableUtf8Array::<i32>::new();
-    let mut views_builder = MutablePrimitiveArray::<u32>::new();
-    let mut language_builder: MutableDictionaryArray<i32, MutableUtf8Array<i32>> =
-        MutableDictionaryArray::new();
-    let mut domain_builder: MutableDictionaryArray<i32, MutableUtf8Array<i32>> =
-        MutableDictionaryArray::new();
-    let mut mobile_builder = MutableBooleanArray::new();
-
-    for element in iterator {
-        if let Ok(row) = element {
-            domain_code_builder.try_push(Some(&row.domain_code))?;
-            page_title_builder.push(Some(&row.page_title));
-            views_builder.push(Some(row.views));
-            language_builder.try_push(Some(&row.parsed_domain_code.language))?;
-            domain_builder.try_push(row.parsed_domain_code.domain)?;
-            mobile_builder.push(Some(row.parsed_domain_code.mobile));
-        }
-    }
-
-    Ok(Chunk::new(vec![
-        domain_code_builder.into_arc(),
-        page_title_builder.into_arc(),
-        views_builder.into_arc(),
-        language_builder.into_arc(),
-        domain_builder.into_arc(),
-        mobile_builder.into_arc(),
-    ]))
+struct ChunkIterator<I: Iterator<Item = Result<Pageviews, ParseError>>> {
+    iter: I,
+    batch_size: usize,
 }
 
-pub fn parquet_from_arrow(path: &Path, chunk: Chunk<Arc<dyn Array>>) -> arrow2::error::Result<()> {
+impl<I: Iterator<Item = Result<Pageviews, ParseError>>> Iterator for ChunkIterator<I> {
+    type Item = Result<Chunk<Arc<dyn Array>>, arrow2::error::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut domain_code_builder: MutableDictionaryArray<i32, MutableUtf8Array<i32>> =
+            MutableDictionaryArray::new();
+        let mut page_title_builder = MutableUtf8Array::<i32>::new();
+        let mut views_builder = MutablePrimitiveArray::<u32>::new();
+        let mut language_builder: MutableDictionaryArray<i32, MutableUtf8Array<i32>> =
+            MutableDictionaryArray::new();
+        let mut domain_builder: MutableDictionaryArray<i32, MutableUtf8Array<i32>> =
+            MutableDictionaryArray::new();
+        let mut mobile_builder = MutableBooleanArray::new();
+
+        let mut count = 0;
+
+        while count < self.batch_size {
+            match self.iter.next() {
+                Some(Ok(row)) => {
+                    if domain_code_builder
+                        .try_push(Some(&row.domain_code))
+                        .is_err()
+                        || language_builder
+                            .try_push(Some(&row.parsed_domain_code.language))
+                            .is_err()
+                        || domain_builder
+                            .try_push(row.parsed_domain_code.domain)
+                            .is_err()
+                    {
+                        // If `try_push` fails, the mutable builders are
+                        // potentially in a corrupted state, and we need
+                        // to abandon the entire Chunk.
+                        return None;
+                    }
+
+                    page_title_builder.push(Some(&row.page_title));
+                    views_builder.push(Some(row.views));
+                    mobile_builder.push(Some(row.parsed_domain_code.mobile));
+
+                    count += 1;
+                }
+                Some(Err(_)) => {
+                    // Skip rows with parse errors
+                    continue;
+                }
+                None => break,
+            }
+        }
+
+        if count == 0 {
+            None
+        } else {
+            Some(Ok(Chunk::new(vec![
+                domain_code_builder.into_arc(),
+                page_title_builder.into_arc(),
+                views_builder.into_arc(),
+                language_builder.into_arc(),
+                domain_builder.into_arc(),
+                mobile_builder.into_arc(),
+            ])))
+        }
+    }
+}
+
+/// Convert the iterator of structs to an arrow chunk.
+///
+/// By default, the function splits the row into chunks equaling the default
+/// parquet row group size. This gives us a bigger memory overhead than if
+/// we split it into smaller groups, but the performance gain makes up for
+/// it. If you're in an extremely memory constrained environment, reduce the
+/// batch size.
+pub fn arrow_chunks_from_structs(
+    iterator: impl Iterator<Item = Result<Pageviews, ParseError>>,
+    batch_size: Option<usize>,
+) -> impl Iterator<Item = Result<Chunk<Arc<dyn Array>>, arrow2::error::Error>> {
+    // Default to parquet row group default size
+    let batch_size = batch_size.unwrap_or(122_880);
+
+    ChunkIterator {
+        iter: iterator,
+        batch_size,
+    }
+}
+
+pub fn parquet_from_arrow<I>(path: &Path, chunks: I) -> arrow2::error::Result<()>
+where
+    I: Iterator<Item = Result<Chunk<Arc<dyn Array>>, arrow2::error::Error>>,
+{
     let file = File::create(path)?;
     let schema = create_schema();
     let options = WriteOptions {
@@ -81,8 +134,7 @@ pub fn parquet_from_arrow(path: &Path, chunk: Chunk<Arc<dyn Array>>) -> arrow2::
         vec![Encoding::Plain],         // mobile
     ];
 
-    let row_groups =
-        RowGroupIterator::try_new(std::iter::once(Ok(chunk)), &schema, options, encodings)?;
+    let row_groups = RowGroupIterator::try_new(chunks, &schema, options, encodings)?;
 
     let mut writer = FileWriter::try_new(file, schema, options)?;
 
@@ -140,7 +192,10 @@ mod tests {
     #[test]
     fn test_arrow_from_structs() {
         let pageviews = make_pageviews().into_iter();
-        let chunk = arrow_from_structs(pageviews).unwrap();
+        let chunk = arrow_chunks_from_structs(pageviews, None)
+            .next()
+            .unwrap()
+            .unwrap();
 
         // Test array size (2 rows, 6 columns)
         assert_eq!(chunk.arrays().len(), 6);

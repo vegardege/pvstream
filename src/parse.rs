@@ -96,14 +96,6 @@ fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
     let third = parts.next();
 
     match (first, second, third) {
-        // As an edge case, domain codes starting with a white listed Wikimedia
-        // project name follows a separate pattern, e.g. "commons.m" for the
-        // non-mobile site or "commons.m.m" for the mobile site.
-        (project, _, _) if WIKIMEDIA_PROJECTS.contains_key(project) => Ok(DomainCode {
-            language: "en".to_string(),
-            domain: WIKIMEDIA_PROJECTS.get(project).copied(),
-            mobile: third.is_some(),
-        }),
         // A weird edge case where the domain_code is only a quoted blank
         // string. It appears to be wikifunctions, but is not documented.
         ("", None, None) => Ok(DomainCode {
@@ -117,6 +109,14 @@ fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
             language: language.into(),
             domain: Some("wikipedia.org"),
             mobile: false,
+        }),
+        // As an edge case, domain codes starting with a white listed Wikimedia
+        // project name follows a separate pattern, e.g. "commons.m" for the
+        // non-mobile site or "commons.m.m" for the mobile site.
+        (project, _, _) if WIKIMEDIA_PROJECTS.contains_key(project) => Ok(DomainCode {
+            language: "en".to_string(),
+            domain: WIKIMEDIA_PROJECTS.get(project).copied(),
+            mobile: third.is_some(),
         }),
         // Two parts, one of which is "m" or "zero", is a mobile page on
         // wikipedia.org, e.g. "en.m" or "no.zero".

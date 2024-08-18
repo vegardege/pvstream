@@ -9,7 +9,7 @@ pub mod python;
 use crate::parse::{Pageviews, ParseError, parse_line};
 use filter::{Filter, post_filter, pre_filter};
 use std::path::PathBuf;
-use store::{arrow_from_structs, parquet_from_arrow};
+use store::{arrow_chunks_from_structs, parquet_from_arrow};
 use stream::{StreamError, lines_from_file, lines_from_url};
 use url::Url;
 
@@ -50,6 +50,7 @@ pub fn parquet_from_file(
     input_path: PathBuf,
     output_path: PathBuf,
     filter: &Filter,
+    batch_size: Option<usize>,
 ) -> Result<(), StreamError> {
     let iterator = lines_from_file(&input_path)?
         .filter(pre_filter(filter))
@@ -58,7 +59,7 @@ pub fn parquet_from_file(
 
     parquet_from_arrow(
         &output_path,
-        arrow_from_structs(iterator).map_err(StreamError::Arrow)?,
+        arrow_chunks_from_structs(iterator, batch_size),
     )?;
 
     Ok(())
@@ -69,6 +70,7 @@ pub fn parquet_from_url(
     url: Url,
     output_path: PathBuf,
     filter: &Filter,
+    batch_size: Option<usize>,
 ) -> Result<(), StreamError> {
     let iterator = lines_from_url(url)?
         .filter(pre_filter(filter))
@@ -77,7 +79,7 @@ pub fn parquet_from_url(
 
     parquet_from_arrow(
         &output_path,
-        arrow_from_structs(iterator).map_err(StreamError::Arrow)?,
+        arrow_chunks_from_structs(iterator, batch_size),
     )?;
 
     Ok(())

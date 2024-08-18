@@ -299,12 +299,13 @@ fn py_stream_from_url(
 #[pyfunction]
 #[pyo3(name = "parquet_from_file",
        signature = (
-           input_path, output_path, line_regex=None, domain_codes=None,
-           page_title=None, min_views=None, max_views=None,
+           input_path, output_path, batch_size=None, line_regex=None,
+           domain_codes=None, page_title=None, min_views=None, max_views=None,
            languages=None, domains=None, mobile=None))]
 fn py_parquet_from_file(
     input_path: String,
     output_path: String,
+    batch_size: Option<usize>,
     line_regex: Option<String>,
     domain_codes: Option<Vec<String>>,
     page_title: Option<String>,
@@ -329,18 +330,20 @@ fn py_parquet_from_file(
         PathBuf::from(input_path),
         PathBuf::from(output_path),
         &filter,
+        batch_size,
     )?)
 }
 
 #[pyfunction]
 #[pyo3(name = "parquet_from_url",
        signature = (
-           url, output_path, line_regex=None, domain_codes=None,
-           page_title=None, min_views=None, max_views=None,
+           url, output_path, batch_size=None, line_regex=None,
+           domain_codes=None, page_title=None, min_views=None, max_views=None,
            languages=None, domains=None, mobile=None))]
 fn py_parquet_from_url(
     url: String,
     output_path: String,
+    batch_size: Option<usize>,
     line_regex: Option<String>,
     domain_codes: Option<Vec<String>>,
     page_title: Option<String>,
@@ -362,7 +365,12 @@ fn py_parquet_from_url(
         mobile,
     )?;
 
-    Ok(parquet_from_url(url, PathBuf::from(output_path), &filter)?)
+    Ok(parquet_from_url(
+        url,
+        PathBuf::from(output_path),
+        &filter,
+        batch_size,
+    )?)
 }
 
 #[pymodule]
