@@ -11,6 +11,7 @@ default = []
 pyo3 = ["pyo3/extension-module"]
 
 [dependencies]
+arrow2 = { version = "0.18", features = ["io_parquet"] }
 flate2 = { version = "1.0", features = ["zlib"] }
 pyo3 = { version = "0.20", optional = true }
 regex = "1"
