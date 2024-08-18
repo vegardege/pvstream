@@ -1,9 +1,11 @@
-use std::sync::Arc;
-
 use crate::parse::{Pageviews, ParseError};
 use arrow2::array::{Array, MutableBooleanArray, MutablePrimitiveArray, MutableUtf8Array};
 use arrow2::chunk::Chunk;
 use arrow2::datatypes::{DataType, Field, Schema};
+use arrow2::io::parquet::write::*;
+use std::fs::File;
+use std::path::Path;
+use std::sync::Arc;
 
 /// Creates the arrow schema used for flattened structs.
 ///
@@ -53,6 +55,37 @@ pub fn arrow_from_structs(
         domain_builder.into_arc(),
         mobile_builder.into_arc(),
     ])
+}
+
+pub fn parquet_from_arrow(path: &Path, chunk: Chunk<Arc<dyn Array>>) -> arrow2::error::Result<()> {
+    let file = File::create(path)?;
+    let schema = create_schema();
+    let options = WriteOptions {
+        write_statistics: false,
+        compression: CompressionOptions::Uncompressed,
+        version: Version::V2,
+        data_pagesize_limit: None,
+    };
+    let encodings = vec![
+        vec![Encoding::Plain], // domain_code
+        vec![Encoding::Plain], // page_title
+        vec![Encoding::Plain], // views
+        vec![Encoding::Plain], // language
+        vec![Encoding::Plain], // domain
+        vec![Encoding::Plain], // mobile
+    ];
+
+    let row_groups =
+        RowGroupIterator::try_new(std::iter::once(Ok(chunk)), &schema, options, encodings)?;
+
+    let mut writer = FileWriter::try_new(file, schema, options)?;
+
+    for group in row_groups {
+        writer.write(group?)?;
+    }
+    writer.end(None)?;
+
+    Ok(())
 }
 
 #[cfg(test)]

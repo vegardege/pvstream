@@ -1,6 +1,6 @@
 mod filter;
+mod parquet;
 pub mod parse;
-mod storage;
 pub mod stream;
 
 #[cfg(feature = "pyo3")]
@@ -8,7 +8,8 @@ pub mod python;
 
 use crate::parse::{Pageviews, ParseError, parse_line};
 use filter::{Filter, post_filter, pre_filter};
-use std::path::PathBuf;
+use parquet::{arrow_from_structs, parquet_from_arrow};
+use std::path::{Path, PathBuf};
 use stream::{StreamError, lines_from_file, lines_from_http};
 use url::Url;
 
@@ -42,4 +43,14 @@ pub fn stream_from_http(url: Url, filter: &Filter) -> Result<RowIterator, Stream
             .map(|line| line.map_err(ParseError::ReadError).and_then(parse_line))
             .filter(post_filter(filter)),
     ))
+}
+
+pub fn parquet_from_file(path: PathBuf) {
+    let iterator = lines_from_file(&path)
+        .expect("Couldn't read from file")
+        .map(|line| line.map_err(ParseError::ReadError).and_then(parse_line));
+
+    let arrow = arrow_from_structs(iterator);
+    let output = Path::new("/Users/vegard/Workspace/pvstream/test.parquet");
+    parquet_from_arrow(&output, arrow).expect("Couldn't create parquet");
 }

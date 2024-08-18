@@ -1,7 +1,7 @@
 use crate::filter::Filter;
 use crate::parse::{Pageviews, ParseError};
 use crate::stream::StreamError;
-use crate::{RowIterator, stream_from_file, stream_from_http};
+use crate::{RowIterator, parquet_from_file, stream_from_file, stream_from_http};
 use pyo3::exceptions::{PyIOError, PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use regex::Regex;
@@ -272,10 +272,18 @@ fn py_stream_from_url(
     )
 }
 
+#[pyfunction]
+#[pyo3(name = "parquet_from_file")]
+fn py_parquet_from_file(path: String) -> PyResult<()> {
+    parquet_from_file(PathBuf::from(path));
+    Ok(())
+}
+
 #[pymodule]
 fn pvstream(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyPageviews>()?;
     m.add_function(wrap_pyfunction!(py_stream_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(py_stream_from_url, m)?)?;
+    m.add_function(wrap_pyfunction!(py_parquet_from_file, m)?)?;
     Ok(())
 }
