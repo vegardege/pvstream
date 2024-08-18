@@ -106,7 +106,7 @@ fn parse_domain_code(domain_code: &str) -> Result<DomainCode, ParseError> {
         }),
         // A weird edge case where the domain_code is only a quoted blank
         // string. It appears to be wikifunctions, but is not documented.
-        (r#""""#, None, None) => Ok(DomainCode {
+        ("", None, None) => Ok(DomainCode {
             language: "en".to_string(),
             domain: Some("wikifunctions.org"),
             mobile: false,
@@ -165,6 +165,7 @@ pub fn parse_line(line: String) -> Result<Pageviews, ParseError> {
         .parse()
         .map_err(|_| invalid("views", &line))?;
 
+    let domain_code = normalize_string(&domain_code);
     let page_title = normalize_string(page_title_raw);
     let parsed_domain_code = parse_domain_code(&domain_code)?;
 
@@ -254,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_empty_quotes_domain_code() {
-        let result = parse_domain_code(r#""""#).unwrap();
+        let result = parse_domain_code("").unwrap();
         assert_eq!(result.language, "en");
         assert_eq!(result.domain, Some("wikifunctions.org".into()));
         assert!(!result.mobile);

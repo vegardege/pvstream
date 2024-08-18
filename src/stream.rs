@@ -22,6 +22,9 @@ pub enum StreamError {
 
     #[error(transparent)]
     Url(#[from] UrlParseError),
+
+    #[error(transparent)]
+    Arrow(#[from] arrow2::error::Error),
 }
 
 /// Struct that owns both the buffer and its iterator.
@@ -73,7 +76,7 @@ pub fn lines_from_file(path: &Path) -> Result<LineReader, StreamError> {
 }
 
 /// Creates an iterator to extract lines from a gzipped file server over HTTP
-pub fn lines_from_http(url: Url) -> Result<LineReader, StreamError> {
+pub fn lines_from_url(url: Url) -> Result<LineReader, StreamError> {
     let response = blocking::get(url)?.error_for_status()?;
     Ok(Box::new(decompress_and_stream(response)))
 }

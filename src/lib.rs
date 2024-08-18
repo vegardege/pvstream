@@ -1,6 +1,6 @@
 mod filter;
-mod parquet;
 pub mod parse;
+mod store;
 pub mod stream;
 
 #[cfg(feature = "pyo3")]
@@ -8,9 +8,9 @@ pub mod python;
 
 use crate::parse::{Pageviews, ParseError, parse_line};
 use filter::{Filter, post_filter, pre_filter};
-use parquet::{arrow_from_structs, parquet_from_arrow};
-use std::path::{Path, PathBuf};
-use stream::{StreamError, lines_from_file, lines_from_http};
+use std::path::PathBuf;
+use store::{arrow_from_structs, parquet_from_arrow};
+use stream::{StreamError, lines_from_file, lines_from_url};
 use url::Url;
 
 pub type RowIterator = Box<dyn Iterator<Item = Result<Pageviews, ParseError>> + Send + 'static>;
@@ -36,21 +36,49 @@ pub fn stream_from_file(path: PathBuf, filter: &Filter) -> Result<RowIterator, S
 /// Otherwise, it returns a `Pageviews` iterator, yielding a `ParseError`
 /// for each line it fails to parse, either due to IO issues or a parsing
 /// error.
-pub fn stream_from_http(url: Url, filter: &Filter) -> Result<RowIterator, StreamError> {
+pub fn stream_from_url(url: Url, filter: &Filter) -> Result<RowIterator, StreamError> {
     Ok(Box::new(
-        lines_from_http(url)?
+        lines_from_url(url)?
             .filter(pre_filter(filter))
             .map(|line| line.map_err(ParseError::ReadError).and_then(parse_line))
             .filter(post_filter(filter)),
     ))
 }
 
-pub fn parquet_from_file(path: PathBuf) {
-    let iterator = lines_from_file(&path)
-        .expect("Couldn't read from file")
-        .map(|line| line.map_err(ParseError::ReadError).and_then(parse_line));
+/// Stores a filtered and parsed pageviews file to a parquet file.
+pub fn parquet_from_file(
+    input_path: PathBuf,
+    output_path: PathBuf,
+    filter: &Filter,
+) -> Result<(), StreamError> {
+    let iterator = lines_from_file(&input_path)?
+        .filter(pre_filter(filter))
+        .map(|line| line.map_err(ParseError::ReadError).and_then(parse_line))
+        .filter(post_filter(filter));
 
-    let arrow = arrow_from_structs(iterator);
-    let output = Path::new("/Users/vegard/Workspace/pvstream/test.parquet");
-    parquet_from_arrow(&output, arrow).expect("Couldn't create parquet");
+    parquet_from_arrow(
+        &output_path,
+        arrow_from_structs(iterator).map_err(StreamError::Arrow)?,
+    )?;
+
+    Ok(())
+}
+
+/// Stores a filtered and parsed pageviews file to a parquet file.
+pub fn parquet_from_url(
+    url: Url,
+    output_path: PathBuf,
+    filter: &Filter,
+) -> Result<(), StreamError> {
+    let iterator = lines_from_url(url)?
+        .filter(pre_filter(filter))
+        .map(|line| line.map_err(ParseError::ReadError).and_then(parse_line))
+        .filter(post_filter(filter));
+
+    parquet_from_arrow(
+        &output_path,
+        arrow_from_structs(iterator).map_err(StreamError::Arrow)?,
+    )?;
+
+    Ok(())
 }

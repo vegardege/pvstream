@@ -1,7 +1,7 @@
 use crate::filter::Filter;
 use crate::parse::{Pageviews, ParseError};
 use crate::stream::StreamError;
-use crate::{RowIterator, parquet_from_file, stream_from_file, stream_from_http};
+use crate::{RowIterator, parquet_from_file, parquet_from_url, stream_from_file, stream_from_url};
 use pyo3::exceptions::{PyIOError, PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use regex::Regex;
@@ -73,6 +73,7 @@ impl From<StreamError> for PyErr {
             StreamError::Http(e) => PyIOError::new_err(e.to_string()),
             StreamError::Url(e) => PyIOError::new_err(e.to_string()),
             StreamError::Io(e) => PyIOError::new_err(e.to_string()),
+            StreamError::Arrow(e) => PyIOError::new_err(e.to_string()),
         }
     }
 }
@@ -85,6 +86,39 @@ impl From<ParseError> for PyErr {
             ParseError::ReadError(e) => PyIOError::new_err(e.to_string()),
         }
     }
+}
+
+/// Converts python input to a `Filters` struct.
+fn filter_from_input(
+    line_regex: Option<String>,
+    domain_codes: Option<Vec<String>>,
+    page_title: Option<String>,
+    min_views: Option<u32>,
+    max_views: Option<u32>,
+    languages: Option<Vec<String>>,
+    domains: Option<Vec<String>>,
+    mobile: Option<bool>,
+) -> Result<Filter, PyErr> {
+    let line_regex = line_regex
+        .map(|pattern| Regex::new(&pattern))
+        .transpose()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    let page_title = page_title
+        .map(|pattern| Regex::new(&pattern))
+        .transpose()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    Ok(Filter {
+        line_regex,
+        domain_codes,
+        page_title,
+        min_views,
+        max_views,
+        languages,
+        domains,
+        mobile,
+    })
 }
 
 #[pyclass(name = "RowIterator")]
@@ -107,17 +141,7 @@ impl PyRowIterator {
         domains: Option<Vec<String>>,
         mobile: Option<bool>,
     ) -> PyResult<Self> {
-        let line_regex = line_regex
-            .map(|pattern| Regex::new(&pattern))
-            .transpose()
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-
-        let page_title = page_title
-            .map(|pattern| Regex::new(&pattern))
-            .transpose()
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-
-        let filter = Filter {
+        let filter = filter_from_input(
             line_regex,
             domain_codes,
             page_title,
@@ -126,7 +150,7 @@ impl PyRowIterator {
             languages,
             domains,
             mobile,
-        };
+        )?;
 
         let iterator = match (path, url) {
             (Some(path), None) => {
@@ -135,7 +159,7 @@ impl PyRowIterator {
             }
             (None, Some(url)) => {
                 let url = Url::parse(&url).map_err(|e| PyValueError::new_err(e.to_string()))?;
-                stream_from_http(url, &filter)?
+                stream_from_url(url, &filter)?
             }
             _ => {
                 return Err(PyValueError::new_err(
@@ -273,10 +297,72 @@ fn py_stream_from_url(
 }
 
 #[pyfunction]
-#[pyo3(name = "parquet_from_file")]
-fn py_parquet_from_file(path: String) -> PyResult<()> {
-    parquet_from_file(PathBuf::from(path));
-    Ok(())
+#[pyo3(name = "parquet_from_file",
+       signature = (
+           input_path, output_path, line_regex=None, domain_codes=None,
+           page_title=None, min_views=None, max_views=None,
+           languages=None, domains=None, mobile=None))]
+fn py_parquet_from_file(
+    input_path: String,
+    output_path: String,
+    line_regex: Option<String>,
+    domain_codes: Option<Vec<String>>,
+    page_title: Option<String>,
+    min_views: Option<u32>,
+    max_views: Option<u32>,
+    languages: Option<Vec<String>>,
+    domains: Option<Vec<String>>,
+    mobile: Option<bool>,
+) -> PyResult<()> {
+    let filter = filter_from_input(
+        line_regex,
+        domain_codes,
+        page_title,
+        min_views,
+        max_views,
+        languages,
+        domains,
+        mobile,
+    )?;
+
+    Ok(parquet_from_file(
+        PathBuf::from(input_path),
+        PathBuf::from(output_path),
+        &filter,
+    )?)
+}
+
+#[pyfunction]
+#[pyo3(name = "parquet_from_url",
+       signature = (
+           url, output_path, line_regex=None, domain_codes=None,
+           page_title=None, min_views=None, max_views=None,
+           languages=None, domains=None, mobile=None))]
+fn py_parquet_from_url(
+    url: String,
+    output_path: String,
+    line_regex: Option<String>,
+    domain_codes: Option<Vec<String>>,
+    page_title: Option<String>,
+    min_views: Option<u32>,
+    max_views: Option<u32>,
+    languages: Option<Vec<String>>,
+    domains: Option<Vec<String>>,
+    mobile: Option<bool>,
+) -> PyResult<()> {
+    let url = Url::parse(&url).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let filter = filter_from_input(
+        line_regex,
+        domain_codes,
+        page_title,
+        min_views,
+        max_views,
+        languages,
+        domains,
+        mobile,
+    )?;
+
+    Ok(parquet_from_url(url, PathBuf::from(output_path), &filter)?)
 }
 
 #[pymodule]
@@ -285,5 +371,6 @@ fn pvstream(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_stream_from_file, m)?)?;
     m.add_function(wrap_pyfunction!(py_stream_from_url, m)?)?;
     m.add_function(wrap_pyfunction!(py_parquet_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(py_parquet_from_url, m)?)?;
     Ok(())
 }
