@@ -1,4 +1,4 @@
-mod filter;
+pub mod filter;
 pub mod parse;
 mod store;
 pub mod stream;
