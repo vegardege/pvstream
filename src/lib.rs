@@ -45,7 +45,11 @@ pub fn stream_from_url(url: Url, filter: &Filter) -> Result<RowIterator, StreamE
     ))
 }
 
-/// Stores a filtered and parsed pageviews file to a parquet file.
+/// Stores a filtered and parsed pageviews file as a parquet file.
+///
+/// By default, the batches will equal the default parquet row group size,
+/// which causes memory requirements of about 100MB. Lower this to sacrifice
+/// performance for lower memory requirements, or vice versa.
 pub fn parquet_from_file(
     input_path: PathBuf,
     output_path: PathBuf,
@@ -65,7 +69,11 @@ pub fn parquet_from_file(
     Ok(())
 }
 
-/// Stores a filtered and parsed pageviews file to a parquet file.
+/// Stores a filtered and parsed pageviews file as a parquet file.
+///
+/// By default, the batches will equal the default parquet row group size,
+/// which causes memory requirements of about 100MB. Lower this to sacrifice
+/// performance for lower memory requirements, or vice versa.
 pub fn parquet_from_url(
     url: Url,
     output_path: PathBuf,

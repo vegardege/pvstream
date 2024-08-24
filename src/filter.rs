@@ -24,10 +24,12 @@ pub struct Filter {
 }
 
 impl Filter {
+    /// Checks if any filters should be applied before parsing.
     fn has_pre_filters(self: &Self) -> bool {
         self.line_regex.is_some()
     }
 
+    /// Checks if any filters should be applied after parsing.
     fn has_post_filters(self: &Self) -> bool {
         self.domain_codes.is_some()
             || self.page_title.is_some()
@@ -38,6 +40,7 @@ impl Filter {
             || self.mobile.is_some()
     }
 
+    /// Filters parsed row objects.
     fn post_filter(self: &Self, obj: &Pageviews) -> bool {
         [
             self.domain_codes

@@ -35,6 +35,7 @@ pub struct PyPageviews {
 
 #[pymethods]
 impl PyPageviews {
+    /// Ensures returns objects can be printed in a pythonic way.
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "Pageviews(\
@@ -121,6 +122,9 @@ fn filter_from_input(
     })
 }
 
+/// Maps our rust iterator to a standard Python setup for iterators.
+/// This class should not be used directly, go through the convenience
+/// functions below instead.
 #[pyclass(name = "RowIterator")]
 struct PyRowIterator {
     iterator: Mutex<RowIterator>,
@@ -186,7 +190,7 @@ impl PyRowIterator {
     }
 }
 
-/// Stream a pageviews file from disk with optional filters.
+/// Streams a pageviews file from disk with optional filters.
 ///
 /// Parameters:
 ///     path (str): Path to the pageviews file.
@@ -241,7 +245,7 @@ fn py_stream_from_file(
     )
 }
 
-/// Stream a pageviews file from a remote server with optional filters.
+/// Streams a pageviews file from a remote server with optional filters.
 ///
 /// Parameters:
 ///     url (str): URL to the pageviews file.
@@ -296,6 +300,32 @@ fn py_stream_from_url(
     )
 }
 
+/// Creates a parquet file based on the parsed and filtered content of the file.
+///
+/// Parameters:
+///     input_path (str): Path to the pageviews file on the local file system.
+///     output_path (str): Path to the parquet file. The file will be overwritten
+///         if it already exists.
+///     batch_size (int | None): How many rows to include in each batch written
+///         to the parquet file. By default, it is 122 880, which is the default
+///         size of a row group in a parquet file. Increase to lower run time at
+///         the cost of more memory, or decrease to lower memory requirements at
+///         the cost of execution speed. Default is fine for most use cases.
+///     line_regex (str | None): Optional regex to match lines before parsing.
+///     domain_codes (list[str] | None): List of domain codes to match exactly.
+///     page_title (str | None): Optional regex to match parsed page title.
+///     min_views (int | None): Minimum number of views.
+///     max_views (int | None): Maximum number of views.
+///     languages (list[str] | None): Filter by language codes.
+///     domains (list[str] | None): Filter by Wikimedia domain.
+///     mobile (bool | None): Filter mobile or desktop traffic.
+///
+/// Raises:
+///     IOError: If the file can't be read.
+///     ParseError: If parsing fails.
+///
+/// Example:
+///     >>> py_parquet_from_file("pageviews.gz", "pageviews.parquet", domains=["wikibooks.org"])
 #[pyfunction]
 #[pyo3(name = "parquet_from_file",
        signature = (
@@ -334,6 +364,32 @@ fn py_parquet_from_file(
     )?)
 }
 
+/// Creates a parquet file based on the parsed and filtered content of the file.
+///
+/// Parameters:
+///     url (str): URL to a remote pageviews file.
+///     output_path (str): Path to the parquet file. The file will be overwritten
+///         if it already exists.
+///     batch_size (int | None): How many rows to include in each batch written
+///         to the parquet file. By default, it is 122 880, which is the default
+///         size of a row group in a parquet file. Increase to lower run time at
+///         the cost of more memory, or decrease to lower memory requirements at
+///         the cost of execution speed. Default is fine for most use cases.
+///     line_regex (str | None): Optional regex to match lines before parsing.
+///     domain_codes (list[str] | None): List of domain codes to match exactly.
+///     page_title (str | None): Optional regex to match parsed page title.
+///     min_views (int | None): Minimum number of views.
+///     max_views (int | None): Maximum number of views.
+///     languages (list[str] | None): Filter by language codes.
+///     domains (list[str] | None): Filter by Wikimedia domain.
+///     mobile (bool | None): Filter mobile or desktop traffic.
+///
+/// Raises:
+///     IOError: If the file can't be read.
+///     ParseError: If parsing fails.
+///
+/// Example:
+///     >>> parquet_from_url("http://127.0.0.1/pageviews.gz", "pageviews.parquet", domains=["wikibooks.org"])
 #[pyfunction]
 #[pyo3(name = "parquet_from_url",
        signature = (

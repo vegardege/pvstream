@@ -24,6 +24,13 @@ fn create_schema() -> Schema {
     ])
 }
 
+/// Batches parsed rows to output efficiently to the parquet file.
+///
+/// Writing one row at a time is unuseably inefficient when working with
+/// parquet files. Writing the entire batch in one go is the fastest,
+/// but requires us to keep the whole file in memory at once, in addition
+/// to internal objects. The iterator can be used to find the sweet spot
+/// for a user's specific use case.
 struct ChunkIterator<I: Iterator<Item = Result<Pageviews, ParseError>>> {
     iter: I,
     batch_size: usize,
@@ -93,7 +100,7 @@ impl<I: Iterator<Item = Result<Pageviews, ParseError>>> Iterator for ChunkIterat
     }
 }
 
-/// Convert the iterator of structs to an arrow chunk.
+/// Converts the iterator of structs to an arrow chunk.
 ///
 /// By default, the function splits the row into chunks equaling the default
 /// parquet row group size. This gives us a bigger memory overhead than if
@@ -113,6 +120,13 @@ pub fn arrow_chunks_from_structs(
     }
 }
 
+/// Writes an arrow chunk to a parquet file using an iterator.
+///
+/// For each chunk provided by the input, the function will update a parquet
+/// file. The file will be overwritten if it already exists.
+///
+/// RLE dictionaries are used for the string fields with few, repeated values,
+/// while plain fields are used for the rest.
 pub fn parquet_from_arrow<I>(path: &Path, chunks: I) -> arrow2::error::Result<()>
 where
     I: Iterator<Item = Result<Chunk<Arc<dyn Array>>, arrow2::error::Error>>,

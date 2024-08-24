@@ -51,7 +51,7 @@ impl<R: BufRead + Send + 'static> Iterator for OwnedLines<R> {
     }
 }
 
-/// Download a file and store it on the local file system.
+/// Downloads a file and store it on the local file system.
 ///
 /// Use this in combination with `from_file` if you plan to parse data from
 /// the same file more than once. If you only ever plan to use the file once,

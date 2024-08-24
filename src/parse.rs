@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 use thiserror::Error;
 
+/// Hard coded map of domain code -> domain mappings
 static DOMAINS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     HashMap::from([
         ("b", "wikibooks.org"),
@@ -18,6 +19,8 @@ static DOMAINS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(||
     ])
 });
 
+/// Some white listed Wikimedia projects use a different format for the
+/// domain codes. This is a map of all the current exceptions.
 static WIKIMEDIA_PROJECTS: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     HashMap::from([
         ("commons", "commons.wikimedia.org"),
