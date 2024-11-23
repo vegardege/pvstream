@@ -76,7 +76,7 @@ pub struct Pageviews {
 /// for strings containing a ", which is escaped to \". This behavior is not
 /// explicitly documented, so this function may have to be revised.
 fn normalize_string(value: &str) -> String {
-    if value.starts_with('"') && value.ends_with('"') {
+    if value.len() >= 2 && value.starts_with('"') && value.ends_with('"') {
         value[1..value.len() - 1].replace(r#"\""#, r#"""#)
     } else {
         value.to_string()
