@@ -16,7 +16,13 @@ To use `pvstream` in your Rust project, add it to your `Cargo.toml`:
 pvstream = { git = "https://github.com/vegardege/pvstream" }
 ```
 
-To use `pvstream` in a python project, you can run this in your virtual environment:
+To use `pvstream` in a python project, run:
+
+```python
+pip install pvstream
+```
+
+To build for your hardware, run this in your virtual environment:
 
 ```python
 pip install maturin
@@ -32,6 +38,9 @@ maturin build --release
 ```
 
 and `pip install` from `target/wheels`.
+
+I have not put a lot of effort into making installation easy on different
+architectures. Get in touch if you want to help out.
 
 ## Usage
 
