@@ -1,15 +1,20 @@
 [project]
 name = "pvstream"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 description = "Stream download, filter, and parse Wikimedia pageviews files"
 authors = [{ name = "Vegard Egeland", email = "vegardegeland@gmail.com" }]
 requires-python = ">=3.8"
-license = "MIT License"
+license = "MIT"
+license-files = ["LICENSE.md"]
 readme = "README.md"
-include = [
-    "py.typed",
-    "pvstream.pyi",
-]
+keywords = ["wikimedia", "pageviews"]
+include = ["py.typed", "pvstream.pyi"]
+
+[project.urls]
+Documentation = "https://github.com/vegardege/pvstream"
+Repository = "https://github.com/vegardege/pvstream"
+Bug = "https://github.com/vegardege/pvstream/issues"
+Changelog = "https://github.com/vegardege/pvstream/blob/master/CHANGELOG.md"
 
 [build-system]
 requires = ["maturin>=1.0,<2.0"]

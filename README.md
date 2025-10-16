@@ -16,7 +16,7 @@ To use `pvstream` in your Rust project, add it to your `Cargo.toml`:
 pvstream = { git = "https://github.com/vegardege/pvstream" }
 ```
 
-To use `pvstream` in a python project, you can run:
+To use `pvstream` in a python project, you can run this in your virtual environment:
 
 ```python
 pip install maturin
@@ -24,6 +24,14 @@ git clone https://github.com/vegardege/pvstream
 cd pvstream
 maturin develop --release
 ```
+
+Or run:
+
+```python
+maturin build --release
+```
+
+and `pip install` from `target/wheels`.
 
 ## Usage
 
@@ -94,10 +102,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```python
 import pvstream
 
-for row in pvstream.stream_from_file(
+rows = pvstream.stream_from_file(
     "pageviews-20240818-080000.gz",
     domain_codes=["en.m"],
     page_title="Rust",
-):
+)
+
+for row in rows:
     print(row)
 ```
