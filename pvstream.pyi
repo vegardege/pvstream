@@ -10,7 +10,7 @@ class Pageviews:  # noqa: E302
     mobile: bool
 
 def stream_from_file(  # noqa: E302
-    path,
+    path: str,
     line_regex: Optional[str] = None,
     domain_codes: Optional[list[str]] = None,
     page_title: Optional[str] = None,
@@ -21,7 +21,7 @@ def stream_from_file(  # noqa: E302
     mobile: Optional[bool] = None,
 ) -> Generator[Pageviews, None, None]: ...
 def stream_from_url(  # noqa: E302
-    url,
+    url: str,
     line_regex: Optional[str] = None,
     domain_codes: Optional[list[str]] = None,
     page_title: Optional[str] = None,
