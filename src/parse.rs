@@ -279,10 +279,7 @@ mod tests {
         assert_eq!(result.page_title, "Copenhagen");
         assert_eq!(result.views, 54);
         assert_eq!(result.parsed_domain_code.language, "en");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikipedia.org")
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
         assert!(result.parsed_domain_code.mobile);
     }
 
@@ -293,10 +290,7 @@ mod tests {
         assert_eq!(result.page_title, r"\(^o^)/チエ");
         assert_eq!(result.views, 1);
         assert_eq!(result.parsed_domain_code.language, "ja");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikipedia.org")
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
         assert!(!result.parsed_domain_code.mobile);
     }
 
@@ -311,10 +305,7 @@ mod tests {
         );
         assert_eq!(result.views, 1);
         assert_eq!(result.parsed_domain_code.language, "vi");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikipedia.org")
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikipedia.org"));
         assert!(result.parsed_domain_code.mobile);
     }
 
@@ -325,10 +316,7 @@ mod tests {
         assert_eq!(result.page_title, "Ядро_Linux/Модулі");
         assert_eq!(result.views, 2);
         assert_eq!(result.parsed_domain_code.language, "uk");
-        assert_eq!(
-            result.parsed_domain_code.domain,
-            Some("wikibooks.org")
-        );
+        assert_eq!(result.parsed_domain_code.domain, Some("wikibooks.org"));
         assert!(!result.parsed_domain_code.mobile);
     }
 
