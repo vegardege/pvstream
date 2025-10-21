@@ -212,7 +212,7 @@ mod tests {
     fn test_wikipedia_plain() {
         let result = parse_domain_code("en").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("wikipedia.org".into()));
+        assert_eq!(result.domain, Some("wikipedia.org"));
         assert!(!result.mobile);
     }
 
@@ -220,7 +220,7 @@ mod tests {
     fn test_wikipedia_mobile() {
         let result = parse_domain_code("no.m").unwrap();
         assert_eq!(result.language, "no");
-        assert_eq!(result.domain, Some("wikipedia.org".into()));
+        assert_eq!(result.domain, Some("wikipedia.org"));
         assert!(result.mobile);
     }
 
@@ -228,7 +228,7 @@ mod tests {
     fn test_other_project() {
         let result = parse_domain_code("fr.v").unwrap();
         assert_eq!(result.language, "fr");
-        assert_eq!(result.domain, Some("wikiversity.org".into()));
+        assert_eq!(result.domain, Some("wikiversity.org"));
         assert!(!result.mobile);
     }
 
@@ -236,7 +236,7 @@ mod tests {
     fn test_other_project_mobile() {
         let result = parse_domain_code("fr.m.v").unwrap();
         assert_eq!(result.language, "fr");
-        assert_eq!(result.domain, Some("wikiversity.org".into()));
+        assert_eq!(result.domain, Some("wikiversity.org"));
         assert!(result.mobile);
     }
 
@@ -244,7 +244,7 @@ mod tests {
     fn test_wikimedia_project() {
         let result = parse_domain_code("commons.m").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("commons.wikimedia.org".into()));
+        assert_eq!(result.domain, Some("commons.wikimedia.org"));
         assert!(!result.mobile);
     }
 
@@ -252,7 +252,7 @@ mod tests {
     fn test_wikimedia_mobile() {
         let result = parse_domain_code("meta.m.m").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("meta.wikimedia.org".into()));
+        assert_eq!(result.domain, Some("meta.wikimedia.org"));
         assert!(result.mobile);
     }
 
@@ -260,7 +260,7 @@ mod tests {
     fn test_empty_quotes_domain_code() {
         let result = parse_domain_code("").unwrap();
         assert_eq!(result.language, "en");
-        assert_eq!(result.domain, Some("wikifunctions.org".into()));
+        assert_eq!(result.domain, Some("wikifunctions.org"));
         assert!(!result.mobile);
     }
 
@@ -281,7 +281,7 @@ mod tests {
         assert_eq!(result.parsed_domain_code.language, "en");
         assert_eq!(
             result.parsed_domain_code.domain,
-            Some("wikipedia.org".into())
+            Some("wikipedia.org")
         );
         assert!(result.parsed_domain_code.mobile);
     }
@@ -295,7 +295,7 @@ mod tests {
         assert_eq!(result.parsed_domain_code.language, "ja");
         assert_eq!(
             result.parsed_domain_code.domain,
-            Some("wikipedia.org".into())
+            Some("wikipedia.org")
         );
         assert!(!result.parsed_domain_code.mobile);
     }
@@ -313,7 +313,7 @@ mod tests {
         assert_eq!(result.parsed_domain_code.language, "vi");
         assert_eq!(
             result.parsed_domain_code.domain,
-            Some("wikipedia.org".into())
+            Some("wikipedia.org")
         );
         assert!(result.parsed_domain_code.mobile);
     }
@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(result.parsed_domain_code.language, "uk");
         assert_eq!(
             result.parsed_domain_code.domain,
-            Some("wikibooks.org".into())
+            Some("wikibooks.org")
         );
         assert!(!result.parsed_domain_code.mobile);
     }

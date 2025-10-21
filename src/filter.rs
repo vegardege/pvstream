@@ -144,7 +144,7 @@ pub fn pre_filter<E>(filter: &Filter) -> PreFilterFn<E> {
     if filter.has_pre_filters() {
         let regex = filter.line_regex.clone().unwrap();
         return Box::new(move |line| match line {
-            Ok(line) => regex.is_match(&line),
+            Ok(line) => regex.is_match(line),
             Err(_) => true, // Pass through to handle later
         });
     }

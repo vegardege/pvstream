@@ -221,8 +221,8 @@ mod tests {
             .downcast_ref::<DictionaryArray<i32>>()
             .unwrap();
 
-        assert_eq!(dict_lookup(&domain_code_array, 0), "en");
-        assert_eq!(dict_lookup(&domain_code_array, 1), "de.m");
+        assert_eq!(dict_lookup(domain_code_array, 0), "en");
+        assert_eq!(dict_lookup(domain_code_array, 1), "de.m");
 
         let page_title_array = chunk.arrays()[1]
             .as_any()
@@ -242,21 +242,21 @@ mod tests {
             .as_any()
             .downcast_ref::<DictionaryArray<i32>>()
             .unwrap();
-        assert_eq!(dict_lookup(&language_array, 0), "en");
-        assert_eq!(dict_lookup(&language_array, 1), "de");
+        assert_eq!(dict_lookup(language_array, 0), "en");
+        assert_eq!(dict_lookup(language_array, 1), "de");
 
         let domain_array = chunk.arrays()[4]
             .as_any()
             .downcast_ref::<DictionaryArray<i32>>()
             .unwrap();
-        assert_eq!(dict_lookup(&domain_array, 0), "wikipedia.org");
-        assert_eq!(dict_lookup(&domain_array, 1), "wikipedia.de");
+        assert_eq!(dict_lookup(domain_array, 0), "wikipedia.org");
+        assert_eq!(dict_lookup(domain_array, 1), "wikipedia.de");
 
         let mobile_array = chunk.arrays()[5]
             .as_any()
             .downcast_ref::<BooleanArray>()
             .unwrap();
-        assert_eq!(mobile_array.value(0), false);
-        assert_eq!(mobile_array.value(1), true);
+        assert!(!mobile_array.value(0));
+        assert!(mobile_array.value(1));
     }
 }
