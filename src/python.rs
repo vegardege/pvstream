@@ -90,6 +90,7 @@ impl From<ParseError> for PyErr {
 }
 
 /// Converts python input to a `Filters` struct.
+#[allow(clippy::too_many_arguments)]
 fn filter_from_input(
     line_regex: Option<String>,
     domain_codes: Option<Vec<String>>,
@@ -133,6 +134,7 @@ struct PyRowIterator {
 #[pymethods]
 impl PyRowIterator {
     #[new]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         path: Option<String>,
         url: Option<String>,
@@ -220,6 +222,7 @@ impl PyRowIterator {
         min_views=None, max_views=None, languages=None, domains=None,
         mobile=None)
 )]
+#[allow(clippy::too_many_arguments)]
 fn py_stream_from_file(
     path: String,
     line_regex: Option<String>,
@@ -275,6 +278,7 @@ fn py_stream_from_file(
         min_views=None, max_views=None, languages=None, domains=None,
         mobile=None)
 )]
+#[allow(clippy::too_many_arguments)]
 fn py_stream_from_url(
     url: String,
     line_regex: Option<String>,
@@ -332,6 +336,7 @@ fn py_stream_from_url(
            input_path, output_path, batch_size=None, line_regex=None,
            domain_codes=None, page_title=None, min_views=None, max_views=None,
            languages=None, domains=None, mobile=None))]
+#[allow(clippy::too_many_arguments)]
 fn py_parquet_from_file(
     input_path: String,
     output_path: String,
@@ -396,6 +401,7 @@ fn py_parquet_from_file(
            url, output_path, batch_size=None, line_regex=None,
            domain_codes=None, page_title=None, min_views=None, max_views=None,
            languages=None, domains=None, mobile=None))]
+#[allow(clippy::too_many_arguments)]
 fn py_parquet_from_url(
     url: String,
     output_path: String,
