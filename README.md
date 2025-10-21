@@ -1,5 +1,7 @@
 # pvstream
 
+[![Code Quality](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml/badge.svg)](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml)
+
 `pvstream` is a Rust library with python bindings allowing you to efficiently
 stream download, parse, and filter pageview from Wikimedia's hourly dumps.
 
