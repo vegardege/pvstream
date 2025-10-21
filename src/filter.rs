@@ -25,12 +25,12 @@ pub struct Filter {
 
 impl Filter {
     /// Checks if any filters should be applied before parsing.
-    fn has_pre_filters(self: &Self) -> bool {
+    fn has_pre_filters(&self) -> bool {
         self.line_regex.is_some()
     }
 
     /// Checks if any filters should be applied after parsing.
-    fn has_post_filters(self: &Self) -> bool {
+    fn has_post_filters(&self) -> bool {
         self.domain_codes.is_some()
             || self.page_title.is_some()
             || self.min_views.is_some()
@@ -41,7 +41,7 @@ impl Filter {
     }
 
     /// Filters parsed row objects.
-    fn post_filter(self: &Self, obj: &Pageviews) -> bool {
+    fn post_filter(&self, obj: &Pageviews) -> bool {
         [
             self.domain_codes
                 .as_ref()
