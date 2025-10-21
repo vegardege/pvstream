@@ -132,12 +132,15 @@ impl FilterBuilder {
     }
 }
 
+type PreFilterFn<E> = Box<dyn Fn(&Result<String, E>) -> bool + Send + Sync>;
+type PostFilterFn<E> = Box<dyn Fn(&Result<Pageviews, E>) -> bool + Send + Sync>;
+
 /// Filters raw lines by a regular expression.
 ///
 /// Optional filter for lines from the pageviews file. Applied before parsing,
 /// which makes it possible to significantly reduce the amount of parsing in
 /// cases where we're only looking for a subset of the file.
-pub fn pre_filter<E>(filter: &Filter) -> Box<dyn Fn(&Result<String, E>) -> bool + Send + Sync> {
+pub fn pre_filter<E>(filter: &Filter) -> PreFilterFn<E> {
     if filter.has_pre_filters() {
         let regex = filter.line_regex.clone().unwrap();
         return Box::new(move |line| match line {
@@ -148,7 +151,7 @@ pub fn pre_filter<E>(filter: &Filter) -> Box<dyn Fn(&Result<String, E>) -> bool 
     Box::new(|_| true)
 }
 
-pub fn post_filter<E>(filter: &Filter) -> Box<dyn Fn(&Result<Pageviews, E>) -> bool + Send + Sync> {
+pub fn post_filter<E>(filter: &Filter) -> PostFilterFn<E> {
     if filter.has_post_filters() {
         let filter = filter.clone();
         return Box::new(move |result| match result {
