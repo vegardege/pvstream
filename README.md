@@ -3,7 +3,7 @@
 [![Code Quality](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml/badge.svg)](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml)
 
 `pvstream` is a Rust library with python bindings allowing you to efficiently
-stream download, parse, and filter pageview from Wikimedia's hourly dumps.
+stream download, parse, and filter pageviews from Wikimedia's hourly dumps.
 
 The library can be used from Rust or python. In both languages you can choose
 between an iterator of parsed objects, made available on the fly as the file
@@ -20,13 +20,13 @@ pvstream = { git = "https://github.com/vegardege/pvstream" }
 
 To use `pvstream` in a python project, run:
 
-```python
+```bash
 pip install pvstream
 ```
 
 To build for your hardware, run this in your virtual environment:
 
-```python
+```bash
 pip install maturin
 git clone https://github.com/vegardege/pvstream
 cd pvstream
@@ -35,7 +35,7 @@ maturin develop --release
 
 Or run:
 
-```python
+```bash
 maturin build --release
 ```
 
@@ -58,7 +58,7 @@ There are four main entry points for this library:
 > [!CAUTION]
 > The `_url` functions will stream the file directly from Wikimedia's servers.
 > Please be kind to the servers and cache if you plan to read the same file
-> more than once. Consider using a mirror closer to you by. You can find
+> more than once. Consider using a mirror closer to you. You can find
 > mirrors listed on [wikimedia.org](https://dumps.wikimedia.org/mirrors.html).
 
 They all accept similar filters. In python, `Regex` is a `str`, `Vec` is a `list`, `u32` is an `int`:
