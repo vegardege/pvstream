@@ -1,7 +1,9 @@
 # pvstream
 
-[![Code Quality](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml/badge.svg)](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml)
-[![PyPI](https://img.shields.io/pypi/v/pvstream?color=%2334D058)](https://pypi.org/project/pvstream/)
+[![Code Quality and Tests](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml/badge.svg)](https://github.com/vegardege/pvstream/actions/workflows/code-quality.yml)
+[![PyPI](https://img.shields.io/pypi/v/pvstream)](https://pypi.org/project/pvstream/)
+[![Crates.io Version](https://img.shields.io/crates/v/pvstream)](https://crates.io/crates/pvstream/)
+[![docs.rs](https://img.shields.io/docsrs/pvstream)](https://docs.rs/pvstream)
 
 `pvstream` is a Rust library with python bindings allowing you to efficiently
 stream download, parse, and filter pageviews from Wikimedia's hourly dumps.
@@ -12,20 +14,32 @@ is downloaded, or a complete parquet file of parsed and filtered data.
 
 ## Installation
 
-To use `pvstream` in your Rust project, add it to your `Cargo.toml`:
+### Rust
+
+Add `pvstream` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pvstream = { git = "https://github.com/vegardege/pvstream" }
+pvstream = "0.1.0-alpha.1"
 ```
 
-To use `pvstream` in a python project, run:
+Or use cargo-add:
+
+```bash
+cargo add pvstream
+```
+
+### Python
+
+Install from PyPI:
 
 ```bash
 pip install pvstream
 ```
 
-To build for your hardware, run this in your virtual environment:
+### Building from Source
+
+To build the Python package for your specific hardware:
 
 ```bash
 pip install maturin
@@ -34,16 +48,12 @@ cd pvstream
 maturin develop --release
 ```
 
-Or run:
+Or build a wheel:
 
 ```bash
 maturin build --release
+pip install target/wheels/pvstream-*.whl
 ```
-
-and `pip install` from `target/wheels`.
-
-I have not put a lot of effort into making installation easy on different
-architectures. Get in touch if you want to help out.
 
 ## Usage
 
