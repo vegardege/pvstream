@@ -20,7 +20,7 @@ Add `pvstream` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pvstream = "0.1.0-alpha.1"
+pvstream = "0.1"
 ```
 
 Or use cargo-add:
