@@ -1,3 +1,30 @@
+//! # pvstream
+//!
+//! Stream download, parse, and filter Wikimedia pageviews files.
+//!
+//! This library provides efficient streaming access to Wikimedia's pageview
+//! dumps, with support for filtering and exporting to Parquet format.
+//!
+//! ## Example
+//!
+//! ```no_run
+//! use pvstream::{stream_from_file, filter::FilterBuilder};
+//! use std::path::PathBuf;
+//!
+//! let filter = FilterBuilder::new()
+//!     .domain_codes(["en.m"])
+//!     .page_title("Rust")
+//!     .build();
+//!
+//! let rows = stream_from_file(PathBuf::from("pageviews.gz"), &filter).unwrap();
+//! for result in rows {
+//!     match result {
+//!         Ok(pageview) => println!("{:?}", pageview),
+//!         Err(e) => eprintln!("Error: {:?}", e),
+//!     }
+//! }
+//! ```
+
 pub mod filter;
 pub mod parse;
 mod store;
