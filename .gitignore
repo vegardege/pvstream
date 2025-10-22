@@ -1,6 +1,6 @@
 # Rust builds
 /target
-Cargo.lock  # Keep this if library; remove if binary
+Cargo.lock
 
 # Python virtual environment
 .venv/

@@ -1,7 +1,7 @@
 [project]
 name = "pvstream"
 version = "0.1.0-alpha.1"
-description = "Stream download, filter, and parse Wikimedia pageviews files"
+description = "Stream download, parse, and filter Wikimedia pageviews files"
 authors = [{ name = "Vegard Egeland", email = "vegardegeland@gmail.com" }]
 requires-python = ">=3.8"
 license = "MIT"

@@ -2,6 +2,20 @@
 name = "pvstream"
 version = "0.1.0-alpha.1"
 edition = "2024"
+description = "Stream download, parse, and filter Wikimedia pageviews files"
+license = "MIT"
+repository = "https://github.com/vegardege/pvstream"
+readme = "README.md"
+keywords = ["wikimedia", "pageviews"]
+categories = ["parser-implementations"]
+exclude = [
+    ".github/",
+    ".vscode/",
+    "*.pyc",
+    "__pycache__/",
+    "Cargo.lock",
+    "*.orig",
+]
 
 [lib]
 name = "pvstream"
