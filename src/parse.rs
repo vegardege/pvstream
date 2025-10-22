@@ -54,18 +54,27 @@ fn invalid(field: &'static str, line: &str) -> ParseError {
     ParseError::InvalidField(field, line.to_string())
 }
 
+/// Parsed domain code components from a Wikimedia pageviews file.
 #[derive(Debug)]
 pub struct DomainCode {
+    /// Language code (e.g., "en", "de", "ja")
     pub language: String,
+    /// Wikimedia domain if recognized (e.g., "wikipedia.org", "wikibooks.org")
     pub domain: Option<&'static str>,
+    /// Whether this is a mobile site
     pub mobile: bool,
 }
 
+/// A single row from a Wikimedia pageviews file.
 #[derive(Debug)]
 pub struct Pageviews {
+    /// Raw domain code from the file (e.g., "en", "de.m", "fr.b")
     pub domain_code: String,
+    /// Page title (URL-encoded underscores preserved)
     pub page_title: String,
+    /// Number of views for this page in this hour
     pub views: u32,
+    /// Parsed components of the domain code
     pub parsed_domain_code: DomainCode,
 }
 
