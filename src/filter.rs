@@ -11,7 +11,7 @@ use crate::parse::Pageviews;
 /// after parsing. Use `line_regex` when possible, as it's far more efficient.
 ///
 /// Use `FilterBuilder` for a more convenient setup.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Filter {
     pub line_regex: Option<Regex>,
     pub domain_codes: Option<Vec<String>>,
@@ -76,7 +76,7 @@ impl Filter {
 ///
 /// `line_regex` is applied before parsing each row, the rest are applied
 /// after parsing. Use `line_regex` when possible, as it's far more efficient.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FilterBuilder {
     filter: Filter,
 }
